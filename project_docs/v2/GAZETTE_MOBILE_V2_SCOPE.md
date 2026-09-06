@@ -1,8 +1,8 @@
-# Gazette Mobile V2 — Product Scope
+# Gazet+E Mobile V2 — Product Scope
 
 ## 1. Product statement
 
-Gazette Mobile V2, kullanıcının istediği anda güncel haberleri derleyip yapay zekâ ile seçen, özetleyen ve görselleştiren; sonucu klasik basılı gazete estetiğinde interaktif bir mobil baskı olarak sunan kişisel gazete uygulamasıdır.
+Gazet+E Mobile V2, kullanıcının istediği anda güncel haberleri derleyip yapay zekâ ile seçen, özetleyen ve görselleştiren; sonucu klasik basılı gazete estetiğinde interaktif bir mobil baskı olarak sunan kişisel gazete uygulamasıdır.
 
 Ana değer önerisi haberleri kopyalamak değil, **bilgi gürültüsünü kullanıcının okuyabileceği tek bir editoryal baskıya dönüştürmektir**.
 
@@ -48,7 +48,7 @@ Minimum içerik:
 - headline;
 - AI-generated editorial image;
 - image transparency/provenance indicator;
-- Gazette kısa özeti;
+- Gazet+E kısa özeti;
 - source/publication adı;
 - yayın zamanı mevcutsa;
 - `Kaynağa Git` eylemi;
@@ -126,9 +126,9 @@ Her article için zorunlu minimum source truth:
 - canonical/original URL;
 - publication time/date mevcutsa;
 - source article identity veya normalized identity;
-- Gazette summary ile source content ayrımı.
+- Gazet+E summary ile source content ayrımı.
 
-Gazette'in summary'si kaynak haberi desteklemeyen yeni facts eklememelidir. Full publisher article metni V2 product content'i olarak varsayılan şekilde yeniden yayımlanmaz.
+Gazet+E'nin summary'si kaynak haberi desteklemeyen yeni facts eklememelidir. Full publisher article metni V2 product content'i olarak varsayılan şekilde yeniden yayımlanmaz.
 
 ## 7. Mobile/backend boundary principles
 

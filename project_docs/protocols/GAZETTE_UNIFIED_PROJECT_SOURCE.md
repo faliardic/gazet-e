@@ -1,10 +1,10 @@
-# Gazette Unified Project Source
+# Gazet+E Unified Project Source
 
-Bu belge Gazette Mobile V2 için kalıcı ürün amacı, owner kararları ve değişmez ürün sınırlarının kanonik kaynağıdır. Current SHA, Issue/PR, branch veya tamamlanma durumu burada tutulmaz; bunlar GitHub'dan okunur.
+Bu belge Gazet+E Mobile V2 için kalıcı ürün amacı, owner kararları ve değişmez ürün sınırlarının kanonik kaynağıdır. Current SHA, Issue/PR, branch veya tamamlanma durumu burada tutulmaz; bunlar GitHub'dan okunur.
 
 ## 1. Ürün amacı
 
-Gazette, kullanıcının haber akışlarını tek tek takip etmesini gerektirmeden, istediği anda güncel haberlerden kişisel bir **dijital basılı gazete baskısı** üretir.
+Gazet+E, kullanıcının haber akışlarını tek tek takip etmesini gerektirmeden, istediği anda güncel haberlerden kişisel bir **dijital basılı gazete baskısı** üretir.
 
 Ürünün sattığı temel değer üçüncü taraf haber metnini yeniden satmak değildir. Değer:
 
@@ -38,7 +38,7 @@ Ana ekran haber feed'i veya card listesi değildir. Kullanıcı tam bir klasik g
 V2'de iki primary mode vardır:
 
 1. **Gazete Modu** — tam gazete sayfası; pinch-zoom, pan/scroll, page navigation, interaktif story regions.
-2. **Okuma Modu** — telefona uygun article view; headline, image, Gazette summary, source ve source action.
+2. **Okuma Modu** — telefona uygun article view; headline, image, Gazet+E summary, source ve source action.
 
 Yeni bir primary reader mode owner kararı olmadan eklenmez. Yardımcı sheet/dialog bu iki mode dışında üçüncü ana deneyim sayılmaz.
 
@@ -52,7 +52,7 @@ V2'de görünür haber görselleri AI tarafından oluşturulur. RSS/publisher im
 
 Amaç:
 
-- tutarlı Gazette visual identity;
+- tutarlı Gazet+E visual identity;
 - third-party photo dependency azaltma;
 - story-specific visual composition;
 - cache/version control.
@@ -71,13 +71,13 @@ Q02 architecture audit tamamlanana kadar mevcut v1.1 RSS, filtering, issue, rend
 
 Pinch/pan/page navigation/article hit region ve two-mode transition davranışı gerçek mobil cihaz üzerinde owner PASS olmadan product-complete kabul edilmez.
 
-### O-010 — Brand is not frozen
+### O-010 — Canonical public/product brand
 
-Repository teknik adı `chatgpt-haber` şimdilik korunur. Mevcut `ChatGPT Gazette` v1.1 adı V2 commercial brand kararı değildir. Public/commercial release öncesi marka ayrı decision gate'te kesinleştirilir.
+6 Eylül 2026 owner kararıyla canonical public/product marka `Gazet+E`, masthead/wordmark gösterimi `GAZET+E` olarak kesinleştirildi. Eski `ChatGPT Gazette` adı aktif marka değildir. Repository slug'ı `faliardic/chatgpt-haber`, Python package/import namespace'i `chatgpt_haber` ve CLI komutu `chatgpt-haber` uyumluluk için korunur. Bu karar trademark, domain, store-name veya legal clearance iddiası değildir; bunlar Q13 gate'inde doğrulanır.
 
 ## 3. Editorial truth principles
 
-- Gazette summary source article'da desteklenmeyen fact eklemez.
+- Gazet+E summary source article'da desteklenmeyen fact eklemez.
 - Source name ve canonical URL edition contract'ta korunur.
 - AI output ile source fact birbirine karıştırılmaz.
 - Aynı olayın farklı kaynakları duplicate cluster olarak ele alınabilir; kaynak izi kaybolmaz.

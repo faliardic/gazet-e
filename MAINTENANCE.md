@@ -2,7 +2,7 @@
 
 ## v1.1 legacy
 
-`v1.1.0` mevcut Python/PDF/static-web Gazette sisteminin tamamlanmış ve stabil legacy baseline'ıdır.
+`v1.1.0` mevcut Python/PDF/static-web Gazet+E sisteminin tamamlanmış ve stabil legacy baseline'ıdır.
 
 Legacy v1.1 için kabul edilen değişiklikler:
 
@@ -18,6 +18,8 @@ Legacy v1.1, Mobile V2 başlatıldı diye toplu olarak silinmez veya yeniden yaz
 ## Mobile V2 aktif geliştirme
 
 6 Eylül 2026 owner kararıyla repository yeniden aktif ürün geliştirmesine alınmıştır.
+
+Canonical public/product marka `Gazet+E`, masthead gösterimi `GAZET+E`dir. Teknik repository, package/import ve CLI adları compatibility identifier olarak korunur.
 
 Mobile V2 çalışmaları:
 

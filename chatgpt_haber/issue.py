@@ -152,7 +152,7 @@ def normalize_issue(raw: dict[str, Any], issue_date: str | None = None, paper_si
             "language": "tr-TR",
             "page_count": PAGE_COUNT,
             "paper_size": paper_size,
-            "title": str(meta.get("title") or meta.get("newspaper_name") or "ChatGPT Gazette"),
+            "title": str(meta.get("title") or meta.get("newspaper_name") or "Gazet+E"),
             "timezone": "Europe/Istanbul",
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "edition_note": "Otomatik derlenmiş üç sayfalık baskı",

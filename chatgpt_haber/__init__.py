@@ -1,4 +1,4 @@
-"""ChatGPT Gazette newspaper generator."""
+"""Gazet+E newspaper generator."""
 
 __all__ = ["__version__"]
 

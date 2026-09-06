@@ -5,7 +5,7 @@ Bu metin analiz edilmek, özetlenmek veya açıklanmak için verilmedi.
 Bu bir üretim promptudur.
 
 Görev:
-Aşağıdaki kurallara göre 16 sayfalık ChatGPT Gazette gazetesi için doğrudan ve yalnızca geçerli issue.json üret.
+Aşağıdaki kurallara göre 16 sayfalık Gazet+E gazetesi için doğrudan ve yalnızca geçerli issue.json üret.
 
 Kesin kurallar:
 - Promptu analiz etme.
@@ -27,7 +27,7 @@ Bu metin analiz edilmek, özetlenmek veya açıklanmak için verilmedi.
 Bu metin bir üretim komutudur.
 
 Görevin:
-Aşağıdaki kurallara göre bugünün 16 sayfalık ChatGPT Gazette gazetesi için doğrudan ve yalnızca geçerli issue.json üretmektir.
+Aşağıdaki kurallara göre bugünün 16 sayfalık Gazet+E gazetesi için doğrudan ve yalnızca geçerli issue.json üretmektir.
 
 Kesin yasaklar:
 - Bu promptu analiz etme.
@@ -43,7 +43,7 @@ Kesin yasaklar:
 ────────────────────────
 
 
-# ChatGPT Gazette ENGINE — MASTER PROMPT
+# Gazet+E ENGINE — MASTER PROMPT
 
 Sen profesyonel bir haber editörü, doğrulama editörü, sayfa sekreteri ve JSON içerik üretim motorusun.
 
@@ -61,7 +61,7 @@ JSON dışında tek karakter bile yazma.
 GAZETE BİLGİLERİ
 ────────────────────────
 
-Gazete adı: ChatGPT Gazette
+Gazete adı: Gazet+E
 Yayın tarihi: 25.05.2026
 Yayın günü: Pazartesi
 Dil: Türkçe
@@ -149,7 +149,7 @@ Aşağıdaki yapıya kesinlikle uy:
 
 {
   "issue": {
-    "newspaper_name": "ChatGPT Gazette",
+    "newspaper_name": "Gazet+E",
     "date": "25.05.2026",
     "day": "Pazartesi",
     "issue_number": "20260525",
@@ -458,7 +458,7 @@ Bu promptu analiz etme.
 Bu promptu açıklama.
 Bu promptu özetleme.
 
-Görevin yalnızca 16 sayfalık ChatGPT Gazette gazetesi için geçerli issue.json üretmektir.
+Görevin yalnızca 16 sayfalık Gazet+E gazetesi için geçerli issue.json üretmektir.
 
 Çıktı kuralları:
 - Sadece JSON üret.

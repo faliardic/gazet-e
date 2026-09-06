@@ -16,7 +16,7 @@ def desktop_dir() -> Path:
 
 def output_path_for_today() -> Path:
     today = date.today().isoformat()
-    return desktop_dir() / "ChatGPT Gazette" / f"gazete-{today}.pdf"
+    return desktop_dir() / "GazetE" / f"gazete-{today}.pdf"
 
 
 def build_today_issue(status: StringVar, done: threading.Event, result: dict[str, object]) -> None:
@@ -45,7 +45,7 @@ def build_today_issue(status: StringVar, done: threading.Event, result: dict[str
 
 def main() -> None:
     root = Tk()
-    root.title("ChatGPT Gazette")
+    root.title("Gazet+E")
     root.geometry("460x180")
     root.resizable(False, False)
 
@@ -53,7 +53,7 @@ def main() -> None:
     done = threading.Event()
     result: dict[str, object] = {}
 
-    Label(root, text="ChatGPT Gazette", font=("Segoe UI", 18, "bold")).pack(pady=(20, 4))
+    Label(root, text="Gazet+E", font=("Segoe UI", 18, "bold")).pack(pady=(20, 4))
     Label(root, textvariable=status, font=("Segoe UI", 11)).pack(pady=(0, 14))
 
     progress = ttk.Progressbar(root, mode="indeterminate", length=360)
@@ -75,14 +75,14 @@ def main() -> None:
             log_path = result.get("log_path")
             status.set("Gazete oluşturulamadı.")
             messagebox.showerror(
-                "ChatGPT Gazette",
+                "Gazet+E",
                 f"Gazete oluşturulamadı.\n\nHata: {error}\n\nAyrıntı: {log_path}",
             )
             return
 
         out = result["out"]
         status.set(f"Gazete oluşturuldu:\n{out}")
-        messagebox.showinfo("ChatGPT Gazette", f"Gazete oluşturuldu:\n\n{out}")
+        messagebox.showinfo("Gazet+E", f"Gazete oluşturuldu:\n\n{out}")
 
     worker = threading.Thread(target=build_today_issue, args=(status, done, result), daemon=True)
     worker.start()

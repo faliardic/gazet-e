@@ -22,7 +22,7 @@ class RandomNewsApp:
         self.service = RandomNewsService()
         self.current: NewsItem | None = None
         self.root = tk.Tk()
-        self.root.title("Gazette Random Haber")
+        self.root.title("Gazet+E Random Haber")
         self.root.geometry("820x620")
         self.root.minsize(620, 440)
         self.root.configure(bg="#f3f5f7")
@@ -37,7 +37,7 @@ class RandomNewsApp:
 
         header = tk.Frame(container, bg="#f3f5f7")
         header.pack(fill="x", pady=(0, 16))
-        tk.Label(header, text="Gazette Random Haber", font=("Segoe UI", 22, "bold"), bg="#f3f5f7", fg="#15181c").pack(
+        tk.Label(header, text="Gazet+E Random Haber", font=("Segoe UI", 22, "bold"), bg="#f3f5f7", fg="#15181c").pack(
             anchor="w"
         )
         tk.Label(header, textvariable=self.status_var, font=("Segoe UI", 10), bg="#f3f5f7", fg="#5f6875").pack(
@@ -101,7 +101,7 @@ class RandomNewsApp:
         try:
             item = self.service.pick_random_news()
         except Exception as exc:
-            messagebox.showerror("Gazette Random Haber", f"Haber yüklenemedi: {exc}")
+            messagebox.showerror("Gazet+E Random Haber", f"Haber yüklenemedi: {exc}")
             item = None
         if item is None:
             self.current = None
@@ -134,7 +134,7 @@ class RandomNewsApp:
         self.title_var.set("Henüz haber seçilmedi")
         self.meta_var.set("")
         self.link_var.set("")
-        self.set_summary("Random Haber tuşuna bas. Uygulama mevcut temizlenmiş Gazette haber havuzundan rastgele bir haber seçecek ve tam haber metnini gösterecek.")
+        self.set_summary("Random Haber tuşuna bas. Uygulama mevcut temizlenmiş Gazet+E haber havuzundan rastgele bir haber seçecek ve tam haber metnini gösterecek.")
         self.open_button.configure(state="disabled")
         self.copy_button.configure(state="disabled")
         self.like_button.configure(state="disabled")
@@ -171,7 +171,7 @@ class RandomNewsApp:
         try:
             target = self.service.copy_latest_gazette_to_desktop()
         except Exception as exc:
-            messagebox.showerror("Gazette Random Haber", f"Gazete kopyalanamadı: {exc}")
+            messagebox.showerror("Gazet+E Random Haber", f"Gazete kopyalanamadı: {exc}")
             return
         self.status_var.set(f"Gazete masaüstüne kopyalandı: {target}")
 

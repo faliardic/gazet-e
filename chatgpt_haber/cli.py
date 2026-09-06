@@ -111,7 +111,7 @@ def should_copy_to_desktop(mode: str) -> bool:
 
 @app.callback()
 def callback() -> None:
-    """ChatGPT Gazette komutları."""
+    """Gazet+E komutları."""
 
 
 def run_build(

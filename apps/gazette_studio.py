@@ -27,14 +27,14 @@ PROJECT_ROOT = project_root()
 class GazetteStudio:
     def __init__(self) -> None:
         self.root = tk.Tk()
-        self.root.title("Gazette Studio")
+        self.root.title("Gazet+E Studio")
         self.root.geometry("860x560")
         self.root.minsize(720, 460)
         self.root.configure(bg="#f3f5f7")
 
         container = tk.Frame(self.root, bg="#f3f5f7", padx=22, pady=18)
         container.pack(fill="both", expand=True)
-        tk.Label(container, text="ChatGPT Gazette Studio", font=("Segoe UI", 24, "bold"), bg="#f3f5f7").pack(anchor="w")
+        tk.Label(container, text="Gazet+E Studio", font=("Segoe UI", 24, "bold"), bg="#f3f5f7").pack(anchor="w")
         tk.Label(container, text="Gazete üretimi, raporlar, Random Haber ve extension kontrol merkezi.", font=("Segoe UI", 10), bg="#f3f5f7", fg="#5f6875").pack(anchor="w", pady=(2, 16))
 
         actions = tk.Frame(container, bg="#f3f5f7")
@@ -67,13 +67,13 @@ class GazetteStudio:
         try:
             process = subprocess.run(args, cwd=PROJECT_ROOT, text=True, capture_output=True, timeout=360)
         except Exception as exc:
-            messagebox.showerror("Gazette Studio", str(exc))
+            messagebox.showerror("Gazet+E Studio", str(exc))
             return
         self.write_log(process.stdout)
         if process.stderr:
             self.write_log(process.stderr)
         if process.returncode != 0:
-            messagebox.showerror("Gazette Studio", f"Komut başarısız: {process.returncode}")
+            messagebox.showerror("Gazet+E Studio", f"Komut başarısız: {process.returncode}")
 
     def build_issue(self) -> None:
         self.run_command([command_python(), "-m", "chatgpt_haber.cli", "build", "--mode", "full", "--out", "dist/gazete.pdf"])
@@ -93,7 +93,7 @@ class GazetteStudio:
 
     def open_path(self, path: Path) -> None:
         if not path.exists():
-            messagebox.showinfo("Gazette Studio", f"Bulunamadı: {path}")
+            messagebox.showinfo("Gazet+E Studio", f"Bulunamadı: {path}")
             return
         webbrowser.open(str(path))
 

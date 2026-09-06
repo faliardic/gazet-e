@@ -639,7 +639,7 @@ def fallback_image(article: dict[str, Any], image_dir: Path) -> dict[str, Any] |
     for line in lines:
         draw.text((92, y), line, fill=fg, font=font_large)
         y += 70
-    draw.text((92, 650), "ChatGPT Gazette | TEMSİLİ GÖRSEL", fill="#ffffff", font=font_caption)
+    draw.text((92, 650), "Gazet+E | TEMSİLİ GÖRSEL", fill="#ffffff", font=font_caption)
     image.save(path, quality=88)
     return {"path": str(path), "source_url": "", "width": 1200, "height": 720}
 

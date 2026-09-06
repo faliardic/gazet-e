@@ -1,4 +1,4 @@
-# Gazette Mobile V2 — Kanonik Ürün Yol Haritası
+# Gazet+E Mobile V2 — Kanonik Ürün Yol Haritası
 
 **Durum:** Aktif geliştirme için tek kanonik yürütme kuyruğu  
 **Güncelleme:** 6 Eylül 2026  
@@ -7,7 +7,7 @@
 
 ## 1. Bu dosyanın görevi
 
-Bu `ROADMAP.md`, Gazette Mobile V2 için sıradaki production işinin seçildiği tek kanonik queue'dur.
+Bu `ROADMAP.md`, Gazet+E Mobile V2 için sıradaki production işinin seçildiği tek kanonik queue'dur.
 
 - Current SHA, Issue/PR ve branch durumu her görevde GitHub'dan okunur.
 - Aynı anda açık bir production Issue/PR varsa onun required gate'leri kapanmadan sonraki Q'ya geçilmez.
@@ -29,7 +29,7 @@ Bu `ROADMAP.md`, Gazette Mobile V2 için sıradaki production işinin seçildiğ
 ### Q01 — V2 project authority bootstrap
 
 **Kaynak:** Issue #2  
-**Durum:** `ACTIVE`
+**Durum:** `COMPLETE`
 
 Bitiş tanımı:
 
@@ -41,7 +41,7 @@ Bitiş tanımı:
 
 ### Q02 — Mevcut motor audit'i + mobile/backend architecture boundary
 
-**Durum:** `NEXT`
+**Durum:** `ACTIVE`
 
 Kod yazmadan önce mevcut v1.1 sisteminin hangi parçalarının V2'de yeniden kullanılacağı belirlenir.
 
@@ -82,7 +82,7 @@ Bitiş tanımı:
 - page navigation gesture conflict yaratmaz;
 - newspaper article regions tıklanabilir;
 - article tap `Okuma Modu` açar;
-- Okuma Modu mobil-okunur başlık, AI/editorial image placeholder, Gazette özeti, kaynak ve `Kaynağa Git` sunar;
+- Okuma Modu mobil-okunur başlık, AI/editorial image placeholder, Gazet+E özeti, kaynak ve `Kaynağa Git` sunar;
 - paper üzerindeki source affordance gerekirse doğrudan kaynağı açabilir;
 - Okuma Modu'ndan geri dönüş aynı edition/page bağlamını korur;
 - Fatih gerçek cihazda gesture/readability PASS verir.
@@ -134,7 +134,7 @@ Mevcut RSS kabiliyetleri V2 service contract'a taşınır veya dar uyarlamayla y
 
 **Durum:** `QUEUED`
 
-- haber gerçeğine sadık kısa Gazette özeti;
+- haber gerçeğine sadık kısa Gazet+E özeti;
 - unsupported detail/hallucination kontrolü;
 - source attribution;
 - versioned prompt/model metadata;
@@ -219,8 +219,9 @@ minimum sürtünmeyle eklenir. Personalization source truth'u bozmaz.
 
 Ücretli/public ürün öncesi:
 
-- final commercial brand;
-- `ChatGPT`/third-party trademark exposure removal if needed;
+- `Gazet+E` trademark/legal clearance;
+- `Gazet+E` domain ve store-name availability;
+- third-party trademark exposure kontrolü;
 - RSS/source terms audit;
 - summary/excerpt policy;
 - AI image/provider commercial terms;
