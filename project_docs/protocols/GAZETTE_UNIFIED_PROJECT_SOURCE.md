@@ -71,9 +71,11 @@ Q02 architecture audit tamamlanana kadar mevcut v1.1 RSS, filtering, issue, rend
 
 Pinch/pan/page navigation/article hit region ve two-mode transition davranışı gerçek mobil cihaz üzerinde owner PASS olmadan product-complete kabul edilmez.
 
-### O-010 — Canonical public/product brand
+### O-010 — Canonical public/product brand ve repository identity
 
-6 Eylül 2026 owner kararıyla canonical public/product marka `Gazet+E`, masthead/wordmark gösterimi `GAZET+E` olarak kesinleştirildi. Eski `ChatGPT Gazette` adı aktif marka değildir. Repository slug'ı `faliardic/chatgpt-haber`, Python package/import namespace'i `chatgpt_haber` ve CLI komutu `chatgpt-haber` uyumluluk için korunur. Bu karar trademark, domain, store-name veya legal clearance iddiası değildir; bunlar Q13 gate'inde doğrulanır.
+6 Eylül 2026 owner kararıyla canonical public/product marka `Gazet+E`, masthead/wordmark gösterimi `GAZET+E` olarak kesinleştirildi. Eski `ChatGPT Gazette` adı aktif marka değildir.
+
+Fatih'in 7 Eylül 2026 owner kararıyla repository rename kalıcıdır ve kanonik GitHub repository kimliği `faliardic/gazet-e`dir. Önceki `faliardic/chatgpt-haber` repository slug koruması bu kararla supersede edilmiştir. Python package/import namespace'i `chatgpt_haber` ve CLI komutu `chatgpt-haber` uyumluluk için korunmaya devam eder. Bu karar trademark, domain, store-name veya legal clearance iddiası değildir; bunlar Q13 gate'inde doğrulanır.
 
 ## 3. Editorial truth principles
 
