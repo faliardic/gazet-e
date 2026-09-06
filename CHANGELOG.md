@@ -2,6 +2,7 @@
 
 ## Unreleased — Mobile V2 bootstrap
 
+- Q03 Flutter reader proof; üç sayfalı bundled fixture, fixed newspaper canvas, pinch/pan, fit-scale navigation, explicit article/source hit regions, Okuma Modu ve deterministic golden ile offline olarak tamamlandı.
 - GitHub repository'si 7 Eylül 2026 owner kararıyla kalıcı olarak `faliardic/gazet-e` adına taşındı; `chatgpt_haber` namespace'i ve `chatgpt-haber` CLI uyumluluk adları değişmeden korundu.
 - v1.1 RSS, filtering, identity/dedupe, issue, render/layout, image, timing/cache, Windows ve GitHub Pages sınırları read-only source audit ile sınıflandırıldı.
 - Mobile V2 için Flutter client ile Python FastAPI + PostgreSQL durable worker sınırı seçildi; versioned interactive edition contract ve reuse/replace matrisi kanonikleştirildi.
