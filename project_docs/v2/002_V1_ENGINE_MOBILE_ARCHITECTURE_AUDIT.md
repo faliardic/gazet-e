@@ -81,7 +81,7 @@ Canonical URL, host/source kimliği, redirect ve tracking normalizasyonundan son
 
 ### 3.4 Current issue JSON/data model
 
-[`issue.py`](../../chatgpt_haber/issue.py#L128-L161) modern girdiyi normalize ediyor; [`is_modern_issue`](../../chatgpt_haber/issue.py#L164-L170) tam üç sayfa ve sınırlı template seti bekliyor. Legacy conversion eksik içerikleri clone ederek fixed story count'a dolduruyor. [`validate_issue`](../../chatgpt_haber/issue.py#L221-L255) temel headline/body/layout/image kontrolleri yapıyor. [`issue.schema.json`](../../schemas/issue.schema.json) aynı fixed print modelini tarif ediyor.
+[`issue.py`](../../chatgpt_haber/issue.py#L128-L161) modern girdiyi normalize ediyor; [`looks_like_modern_issue`](../../chatgpt_haber/issue.py#L164-L170) tam üç sayfa ve sınırlı template seti bekliyor. Legacy conversion eksik içerikleri clone ederek fixed story count'a dolduruyor. [`validate_issue_data`](../../chatgpt_haber/issue.py#L221-L255) temel headline/body/layout/image kontrolleri yapıyor. [`issue.schema.json`](../../schemas/issue.schema.json) aynı fixed print modelini tarif ediyor.
 
 Model headline, body, source bundle ve `layout_hint` taşıdığı için migration girdisi olarak değerlidir. Ancak aşağıdakiler yoktur:
 
@@ -195,17 +195,20 @@ Minimum service contract:
 
 - `POST /v1/edition-jobs` — `Idempotency-Key` ve versioned request body alır; `202` ile mevcut/yeni `job_id` döner.
 - `GET /v1/edition-jobs/{job_id}` — durable state, current stage, attempt, son checkpoint zamanı ve safe failure döner.
+- `POST /v1/edition-jobs/{job_id}/cancel` — non-terminal job için idempotent cancellation intent kaydeder; effective terminal state'i döner.
 - `GET /v1/editions/{edition_id}` — yalnız validation PASS etmiş canonical edition document döner.
 
 State machine sabittir:
 
 ```text
-requested -> collecting -> selecting -> summarizing -> illustrating
-          -> laying_out -> ready
-                         -> failed
+requested -> collecting -> selecting -> summarizing -> illustrating -> laying_out -> ready
+any non-terminal -----------------------------------------------------> failed
+any non-terminal ---------------------------------------------------> cancelled
 ```
 
-Stage adı gerçek durable checkpoint'i gösterir; uydurma yüzde ilerleme gösterilmez. Bilinen toplam varsa item counts ayrıca sunulabilir. Retry yalnız `retryable=true` failure veya expired lease için bounded attempt/backoff ile yapılır. Kullanıcı aynı idempotency key ile retry storm yaratamaz. Ready edition immutable'dır; farklı policy/request yeni edition/job identity üretir. İlk contract'ta cancellation yeni state eklemez: başlamamış iş iptal talebini `failed` + `code: cancelled_by_client` olarak terminalize eder; aktif provider çağrısı güvenli checkpoint'te durur.
+Stage adı gerçek durable checkpoint'i gösterir; uydurma yüzde ilerleme gösterilmez. Bilinen toplam varsa item counts ayrıca sunulabilir. Retry yalnız `failed` state'indeki `retryable=true` failure veya expired lease için bounded attempt/backoff ile yapılır; failure payload'ı `code`, `retryable`, `attempt` ve safe diagnostic taşır. Kullanıcı aynı idempotency key ile retry storm yaratamaz.
+
+`cancelled`, intentional user/system cancellation için ayrı terminal state'tir; `failed` değildir ve `retryable` failure payload'ı taşımaz. Cancel endpoint aynı job için tekrar çağrıldığında aynı sonucu döndürür. Job `cancellation.requested_at`, `effective_at` ve safe actor/reason metadata'sını saklar; başlamamış işi hemen, aktif işi ise provider çağrısından sonraki güvenli checkpoint'te durdurur ve sonraki artifact'ı publish etmez. Cancelled job'ı yeniden üretmek bilinçli yeni request/idempotency key gerektirir. Ready ve failed terminal job'lar cancel ile yeniden sınıflandırılmaz. Ready edition immutable'dır; farklı policy/request yeni edition/job identity üretir.
 
 ## 6. Canonical interactive edition contract
 

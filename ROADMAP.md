@@ -41,7 +41,7 @@ Bitiş tanımı:
 
 ### Q02 — Mevcut motor audit'i + mobile/backend architecture boundary
 
-**Durum:** `ACTIVE`
+**Durum:** `COMPLETE`
 
 Kod yazmadan önce mevcut v1.1 sisteminin hangi parçalarının V2'de yeniden kullanılacağı belirlenir.
 
@@ -78,7 +78,7 @@ Architecture çıktısı en az şunları kesinleştirir:
 
 ### Q03 — Static interactive newspaper reader vertical slice
 
-**Durum:** `QUEUED`
+**Durum:** `NEXT`
 
 Fixture/sample edition ile canlı RSS/AI olmadan çekirdek mobil deneyim kanıtlanır.
 
@@ -118,7 +118,7 @@ JSON-ready canonical contract olarak tanımlanır ve fixture/regression testleri
 
 `Gazetemi Hazırla` eylemi için bounded job lifecycle kurulur:
 
-`requested -> collecting -> selecting -> summarizing -> illustrating -> laying_out -> ready | failed`
+`requested -> collecting -> selecting -> summarizing -> illustrating -> laying_out -> ready | failed | cancelled`
 
 - progress truthful olur;
 - duplicate request storm engellenir;
