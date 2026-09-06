@@ -2,6 +2,9 @@
 
 ## Unreleased — Mobile V2 bootstrap
 
+- v1.1 RSS, filtering, identity/dedupe, issue, render/layout, image, timing/cache, Windows ve GitHub Pages sınırları read-only source audit ile sınıflandırıldı.
+- Mobile V2 için Flutter client ile Python FastAPI + PostgreSQL durable worker sınırı seçildi; versioned interactive edition contract ve reuse/replace matrisi kanonikleştirildi.
+- Q03 reader proof'ünün live RSS/AI/backend öncesinde bundled fixture ve local asset'lerle offline kalması zorunlu gate olarak korundu.
 - Canonical public/product marka `Gazet+E`, masthead/wordmark gösterimi `GAZET+E` olarak kesinleştirildi.
 - Aktif v1.1 UI, render, prompt ve sample defaults yeni markaya truth-sync edildi; repository/package/CLI uyumluluk adları ile tarihsel yayın kanıtları korundu.
 - Repository, v1.1 legacy baseline korunarak Mobile V2 aktif geliştirmesine yeniden açıldı.
