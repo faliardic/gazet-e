@@ -98,7 +98,7 @@ Bu Q, product-market riski yüksek temel etkileşimi backend yatırımından ön
 
 ### Q04 — Edition document model + interactive layout contract
 
-**Durum:** `NEXT`
+**Durum:** `COMPLETE`
 
 - edition ID/timestamp;
 - page identity/order;
@@ -114,7 +114,7 @@ JSON-ready canonical contract olarak tanımlanır ve fixture/regression testleri
 
 ### Q05 — On-demand edition job service
 
-**Durum:** `QUEUED`
+**Durum:** `NEXT`
 
 `Gazetemi Hazırla` eylemi için bounded job lifecycle kurulur:
 
