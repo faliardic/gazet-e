@@ -70,6 +70,8 @@ class NewspaperView extends StatelessWidget {
                 page: page,
                 edition: session.edition,
                 controller: controller,
+                onPreviousPage: session.previousPage,
+                onNextPage: session.nextPage,
                 onOpenArticle: session.openArticle,
                 onOpenSource: (article) => _openSource(context, article),
               ),
@@ -163,11 +165,13 @@ class _NavigationBar extends StatelessWidget {
   }
 }
 
-class NewspaperViewport extends StatelessWidget {
+class NewspaperViewport extends StatefulWidget {
   const NewspaperViewport({
     required this.page,
     required this.edition,
     required this.controller,
+    required this.onPreviousPage,
+    required this.onNextPage,
     required this.onOpenArticle,
     required this.onOpenSource,
     super.key,
@@ -176,46 +180,112 @@ class NewspaperViewport extends StatelessWidget {
   final NewspaperPage page;
   final EditionDocument edition;
   final TransformationController controller;
+  final VoidCallback onPreviousPage;
+  final VoidCallback onNextPage;
   final ValueChanged<String> onOpenArticle;
   final ValueChanged<Article> onOpenSource;
+
+  @override
+  State<NewspaperViewport> createState() => _NewspaperViewportState();
+}
+
+class _NewspaperViewportState extends State<NewspaperViewport> {
+  static const _minimumSwipeDistance = 72.0;
+  static const _horizontalDominance = 1.5;
+
+  Offset _interactionDelta = Offset.zero;
+  bool _startedAtFit = false;
+  bool _singlePointerOnly = false;
+  bool _scaleOccurred = false;
+
+  bool get _isAtFit =>
+      widget.controller.value.getMaxScaleOnAxis() <=
+      1 + EditionSession.fitScaleTolerance;
+
+  void _onInteractionStart(ScaleStartDetails details) {
+    _interactionDelta = Offset.zero;
+    _startedAtFit = _isAtFit;
+    _singlePointerOnly = details.pointerCount == 1;
+    _scaleOccurred = false;
+  }
+
+  void _onInteractionUpdate(ScaleUpdateDetails details) {
+    _interactionDelta += details.focalPointDelta;
+    if (details.pointerCount != 1) {
+      _singlePointerOnly = false;
+    }
+    if ((details.scale - 1).abs() > EditionSession.fitScaleTolerance ||
+        !_isAtFit) {
+      _scaleOccurred = true;
+    }
+  }
+
+  void _onInteractionEnd(ScaleEndDetails details) {
+    final endedAtFit = _isAtFit;
+    final horizontalDistance = _interactionDelta.dx.abs();
+    final verticalDistance = _interactionDelta.dy.abs();
+    final isPageSwipe =
+        _startedAtFit &&
+        endedAtFit &&
+        _singlePointerOnly &&
+        !_scaleOccurred &&
+        horizontalDistance >= _minimumSwipeDistance &&
+        horizontalDistance >= verticalDistance * _horizontalDominance;
+
+    if (endedAtFit) {
+      widget.controller.value = Matrix4.identity();
+    }
+    if (!isPageSwipe) {
+      return;
+    }
+
+    if (_interactionDelta.dx < 0) {
+      widget.onNextPage();
+    } else {
+      widget.onPreviousPage();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final fit = math.min(
-          constraints.maxWidth / page.canvas.width,
-          constraints.maxHeight / page.canvas.height,
+          constraints.maxWidth / widget.page.canvas.width,
+          constraints.maxHeight / widget.page.canvas.height,
         );
-        final fittedWidth = page.canvas.width * fit;
-        final fittedHeight = page.canvas.height * fit;
+        final fittedWidth = widget.page.canvas.width * fit;
+        final fittedHeight = widget.page.canvas.height * fit;
 
         return Center(
           child: SizedBox(
             width: fittedWidth,
             height: fittedHeight,
             child: InteractiveViewer(
-              key: Key('interactive-page-${page.id}'),
-              transformationController: controller,
+              key: Key('interactive-page-${widget.page.id}'),
+              transformationController: widget.controller,
               minScale: 1,
               maxScale: 4,
               panEnabled: true,
               scaleEnabled: true,
               boundaryMargin: const EdgeInsets.all(36),
               clipBehavior: Clip.hardEdge,
+              onInteractionStart: _onInteractionStart,
+              onInteractionUpdate: _onInteractionUpdate,
+              onInteractionEnd: _onInteractionEnd,
               child: SizedBox(
                 width: fittedWidth,
                 height: fittedHeight,
                 child: FittedBox(
                   fit: BoxFit.fill,
                   child: SizedBox(
-                    width: page.canvas.width,
-                    height: page.canvas.height,
+                    width: widget.page.canvas.width,
+                    height: widget.page.canvas.height,
                     child: NewspaperCanvas(
-                      page: page,
-                      edition: edition,
-                      onOpenArticle: onOpenArticle,
-                      onOpenSource: onOpenSource,
+                      page: widget.page,
+                      edition: widget.edition,
+                      onOpenArticle: widget.onOpenArticle,
+                      onOpenSource: widget.onOpenSource,
                     ),
                   ),
                 ),
