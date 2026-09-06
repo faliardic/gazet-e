@@ -19,7 +19,7 @@ Legacy v1.1, Mobile V2 başlatıldı diye toplu olarak silinmez veya yeniden yaz
 
 6 Eylül 2026 owner kararıyla repository yeniden aktif ürün geliştirmesine alınmıştır.
 
-Canonical public/product marka `Gazet+E`, masthead gösterimi `GAZET+E`dir. Teknik repository, package/import ve CLI adları compatibility identifier olarak korunur.
+Canonical public/product marka `Gazet+E`, masthead gösterimi `GAZET+E`, kanonik GitHub repository kimliği `faliardic/gazet-e`dir. Repository rename kalıcıdır; Python package/import namespace'i `chatgpt_haber` ve CLI komutu `chatgpt-haber` compatibility identifier olarak değişmeden korunur.
 
 Mobile V2 çalışmaları:
 

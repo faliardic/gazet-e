@@ -5,6 +5,7 @@ Bu dosya repository kökünde bütün Gazet+E V2 çalışmalarına uygulanır ve
 ## 1. Güncel gerçek ve kaynak otoritesi
 
 - Güncel repository gerçeği: GitHub `main`, current Issue/PR/branch ve owner kararları.
+- Kanonik GitHub repository kimliği: `faliardic/gazet-e`.
 - Kalıcı ürün ilkeleri ve owner kararları: `project_docs/protocols/GAZETTE_UNIFIED_PROJECT_SOURCE.md`.
 - Güncel V2 ürün kapsamı: `project_docs/v2/GAZETTE_MOBILE_V2_SCOPE.md`.
 - Güncel yürütme sırası ve tek kanonik queue: `ROADMAP.md`.
@@ -90,7 +91,7 @@ Aşağıdaki ilkeler owner kararı olmadan feature işi içinde değiştirilemez
 7. AI görseli gerçek olayın kanıt fotoğrafı gibi uydurulmaz. Hassas gerçek olaylarda kavramsal/editoryal temsil kullanılır.
 8. Kaynak attribution ve source URL edition contract'ın zorunlu parçasıdır.
 9. v1.1 legacy pipeline, Q02 architecture audit sonuçlanmadan kaldırılmaz.
-10. Public/product marka `Gazet+E`, masthead `GAZET+E`dir; repository teknik adı uyumluluk için korunur.
+10. Public/product marka `Gazet+E`, masthead `GAZET+E`, kanonik GitHub repository kimliği `faliardic/gazet-e`dir. Python package/import namespace'i `chatgpt_haber` ve CLI komutu `chatgpt-haber` uyumluluk için korunur.
 
 ## 6. Mobil gesture ve acceptance kuralı
 

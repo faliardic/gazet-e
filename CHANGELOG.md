@@ -2,11 +2,12 @@
 
 ## Unreleased — Mobile V2 bootstrap
 
+- GitHub repository'si 7 Eylül 2026 owner kararıyla kalıcı olarak `faliardic/gazet-e` adına taşındı; `chatgpt_haber` namespace'i ve `chatgpt-haber` CLI uyumluluk adları değişmeden korundu.
 - v1.1 RSS, filtering, identity/dedupe, issue, render/layout, image, timing/cache, Windows ve GitHub Pages sınırları read-only source audit ile sınıflandırıldı.
 - Mobile V2 için Flutter client ile Python FastAPI + PostgreSQL durable worker sınırı seçildi; versioned interactive edition contract ve reuse/replace matrisi kanonikleştirildi.
 - Q03 reader proof'ünün live RSS/AI/backend öncesinde bundled fixture ve local asset'lerle offline kalması zorunlu gate olarak korundu.
 - Canonical public/product marka `Gazet+E`, masthead/wordmark gösterimi `GAZET+E` olarak kesinleştirildi.
-- Aktif v1.1 UI, render, prompt ve sample defaults yeni markaya truth-sync edildi; repository/package/CLI uyumluluk adları ile tarihsel yayın kanıtları korundu.
+- Aktif v1.1 UI, render, prompt ve sample defaults yeni markaya truth-sync edildi; package/CLI uyumluluk adları ile tarihsel yayın kanıtları korundu.
 - Repository, v1.1 legacy baseline korunarak Mobile V2 aktif geliştirmesine yeniden açıldı.
 - CSE tarzı GitHub-first çalışma otoritesi için `AGENTS.md` ve kanonik `ROADMAP.md` eklendi.
 - V2 ürün kapsamı ve kalıcı owner kararları `project_docs/` altında kanonikleştirildi.
