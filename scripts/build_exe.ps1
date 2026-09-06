@@ -2,7 +2,7 @@ $ErrorActionPreference = "Stop"
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $projectRoot
-$distOutput = Join-Path $projectRoot "dist\ChatGPTHaber"
+$distOutput = Join-Path $projectRoot "dist\GazetE"
 $distRoot = Join-Path $projectRoot "dist"
 if (Test-Path $distOutput) {
   $resolvedDistRoot = (Resolve-Path $distRoot).Path
@@ -32,7 +32,7 @@ Invoke-Checked python @("-m", "pip", "install", "pyinstaller")
 $env:PLAYWRIGHT_BROWSERS_PATH = "0"
 Invoke-Checked python @("-m", "playwright", "install", "chromium")
 
-$pyinstallerWorkPath = Join-Path $env:TEMP "ChatGPTHaber-pyinstaller-build"
+$pyinstallerWorkPath = Join-Path $env:TEMP "GazetE-pyinstaller-build"
 $pyinstallerSpecPath = Join-Path $projectRoot "build\pyinstaller-spec"
 New-Item -ItemType Directory -Force -Path $pyinstallerSpecPath | Out-Null
 $templatesData = "$projectRoot\templates;templates"
@@ -45,7 +45,7 @@ Invoke-Checked python @(
   "--clean",
   "--noconfirm",
   "--noconsole",
-  "--name", "ChatGPTHaber",
+  "--name", "GazetE",
   "--workpath", $pyinstallerWorkPath,
   "--specpath", $pyinstallerSpecPath,
   "--collect-all", "playwright",
@@ -57,5 +57,5 @@ Invoke-Checked python @(
 )
 
 Write-Host ""
-Write-Host "Hazir: $projectRoot\dist\ChatGPTHaber\ChatGPTHaber.exe"
+Write-Host "Hazir: $projectRoot\dist\GazetE\GazetE.exe"
 Write-Host "Bu klasoru komple baska bilgisayara kopyalayabilirsiniz."

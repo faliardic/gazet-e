@@ -34,11 +34,15 @@ a {
   padding: 14px max(20px, calc((100vw - 880px) / 2));
 }
 
-.detail-brand img {
+.detail-brand {
+  color: var(--text);
   display: block;
-  height: 48px;
-  object-fit: contain;
-  width: 160px;
+  font-family: var(--sans);
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  text-decoration: none;
 }
 
 .detail-nav {

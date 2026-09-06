@@ -26,7 +26,7 @@ def issue_from_rss(issue_date: str, paper_size: str, image_dir: Path | None = No
             "language": "tr-TR",
             "page_count": 3,
             "paper_size": paper_size,
-            "title": "ChatGPT Gazette",
+            "title": "Gazet+E",
             "timezone": "Europe/Istanbul",
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "edition_note": "Otomatik derlenmiş üç sayfalık baskı",

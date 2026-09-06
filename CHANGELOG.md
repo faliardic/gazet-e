@@ -2,6 +2,8 @@
 
 ## Unreleased — Mobile V2 bootstrap
 
+- Canonical public/product marka `Gazet+E`, masthead/wordmark gösterimi `GAZET+E` olarak kesinleştirildi.
+- Aktif v1.1 UI, render, prompt ve sample defaults yeni markaya truth-sync edildi; repository/package/CLI uyumluluk adları ile tarihsel yayın kanıtları korundu.
 - Repository, v1.1 legacy baseline korunarak Mobile V2 aktif geliştirmesine yeniden açıldı.
 - CSE tarzı GitHub-first çalışma otoritesi için `AGENTS.md` ve kanonik `ROADMAP.md` eklendi.
 - V2 ürün kapsamı ve kalıcı owner kararları `project_docs/` altında kanonikleştirildi.

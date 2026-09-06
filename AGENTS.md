@@ -1,6 +1,6 @@
-# Gazette Repository Instructions
+# Gazet+E Repository Instructions
 
-Bu dosya repository kökünde bütün Gazette V2 çalışmalarına uygulanır ve günlük execution için zorunlu giriş noktasıdır.
+Bu dosya repository kökünde bütün Gazet+E V2 çalışmalarına uygulanır ve günlük execution için zorunlu giriş noktasıdır.
 
 ## 1. Güncel gerçek ve kaynak otoritesi
 
@@ -90,7 +90,7 @@ Aşağıdaki ilkeler owner kararı olmadan feature işi içinde değiştirilemez
 7. AI görseli gerçek olayın kanıt fotoğrafı gibi uydurulmaz. Hassas gerçek olaylarda kavramsal/editoryal temsil kullanılır.
 8. Kaynak attribution ve source URL edition contract'ın zorunlu parçasıdır.
 9. v1.1 legacy pipeline, Q02 architecture audit sonuçlanmadan kaldırılmaz.
-10. Public/commercial brand ayrı owner decision gate'tir; repository teknik adı şimdilik korunur.
+10. Public/product marka `Gazet+E`, masthead `GAZET+E`dir; repository teknik adı uyumluluk için korunur.
 
 ## 6. Mobil gesture ve acceptance kuralı
 

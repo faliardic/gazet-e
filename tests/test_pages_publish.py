@@ -47,7 +47,7 @@ def sample_issue() -> dict:
             "issue_date": "2026-07-12",
             "page_count": 3,
             "paper_size": "A3",
-            "title": "ChatGPT Gazette",
+            "title": "Gazet+E",
             "generated_at": "2026-07-12T09:10:00+03:00",
         },
         "pages": [
@@ -132,9 +132,12 @@ def test_publish_pages_site_creates_portable_site_and_archive(monkeypatch, tmp_p
     assert soup.select_one(".detail-page__open-source[href='https://example.com/main']")
     assert not soup.select(".detail-page__source")
     assert not soup.select(".story__source")
-    assert "ChatGPT Gazette" in html
+    assert "Gazet+E" in html
+    assert "ChatGPT Gazette" not in html
     assert "CHATGPT HABER" not in html
 
+    assert "Gazet+E Arşiv" in archive_html
+    assert "ChatGPT Gazette" not in archive_html
     assert archive_html.count("2026-07-12/") == 2
     assert archive_html.count("2026-06-06/") == 2
     assert "12 Temmuz 2026" in archive_html

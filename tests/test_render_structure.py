@@ -75,7 +75,9 @@ def test_portable_html_embeds_assets_without_file_links(tmp_path):
 
     assert "file:///" not in html
     assert "<style>" in html
-    assert "data:image/png;base64," in html
+    assert "data:image/png;base64," not in html
+    assert "chatgpt-gazette-mark.png" not in html
+    assert "chatgpt-haber-logo-cropped.png" not in html
 
 
 def test_portable_html_embeds_article_images(tmp_path):
@@ -124,6 +126,9 @@ def test_detail_page_keeps_top_source_link_without_footer(tmp_path):
     assert source_link
     assert source_link.get_text(strip=True) == "KAYNAĞI AÇ"
     assert source_link["href"].startswith("https://")
+    assert detail_soup.select_one(".detail-brand").get_text(strip=True) == "GAZET+E"
+    assert not detail_soup.select(".detail-brand img")
+    assert "ChatGPT Gazette" not in detail_soup.get_text(" ", strip=True)
     assert not detail_soup.select(".detail-source")
 
 
@@ -529,15 +534,18 @@ def test_fast_pdf_html_embeds_main_and_brief_article_details(tmp_path):
     assert all(button["href"] == "#top" for button in detail_pages[0].select(".detail-page__back"))
 
 
-def test_masthead_uses_gazette_brand_without_old_decorations(tmp_path):
+def test_masthead_uses_gazet_e_brand_without_old_decorations(tmp_path):
     html_path = tmp_path / "issue.html"
     render_html(normalize_issue(read_json(Path("examples/issue.sample.json"))), html_path)
     html = html_path.read_text(encoding="utf-8")
     soup = BeautifulSoup(html, "lxml")
 
-    assert "ChatGPT Gazette" in html
-    assert soup.select_one(".masthead__gazette").get_text(strip=True) == "GAZETTE"
-    assert soup.select_one(".masthead__mark")
+    assert "Gazet+E" in html
+    assert "ChatGPT Gazette" not in html
+    assert soup.select_one(".masthead__gazette").get_text(strip=True) == "GAZET+E"
+    assert soup.select_one(".masthead__mark") is None
+    assert "chatgpt-gazette-mark.png" not in html
+    assert "chatgpt-haber-logo-cropped.png" not in html
     assert "GÜVENİLİR" not in html
     assert "TARAFSIZ" not in html
     assert "masthead__slogan" not in html

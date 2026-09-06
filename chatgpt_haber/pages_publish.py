@@ -134,7 +134,7 @@ def write_archive_index(archive_dir: Path) -> Path:
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ChatGPT Gazette Arşiv</title>
+  <title>Gazet+E Arşiv</title>
   <style>
     body {{
       background: #f3f5f7;
@@ -188,7 +188,7 @@ def write_archive_index(archive_dir: Path) -> Path:
 </head>
 <body>
   <main>
-    <h1>ChatGPT Gazette Arşiv</h1>
+    <h1>Gazet+E Arşiv</h1>
     <ol class="archive-list">
 {rows}
     </ol>

@@ -28,7 +28,7 @@ Bu metin analiz edilmek, özetlenmek veya açıklanmak için verilmedi.
 Bu bir üretim promptudur.
 
 Görev:
-Aşağıdaki kurallara göre 16 sayfalık ChatGPT Gazette gazetesi için doğrudan ve yalnızca geçerli issue.json üret.
+Aşağıdaki kurallara göre 16 sayfalık Gazet+E gazetesi için doğrudan ve yalnızca geçerli issue.json üret.
 
 Kesin kurallar:
 - Promptu analiz etme.
