@@ -1,7 +1,7 @@
 # Gazet+E Mobile V2 — Kanonik Ürün Yol Haritası
 
 **Durum:** Aktif geliştirme için tek kanonik yürütme kuyruğu  
-**Güncelleme:** 6 Eylül 2026  
+**Güncelleme:** 7 Eylül 2026<br>
 **Kapsam kaynağı:** `project_docs/v2/GAZETTE_MOBILE_V2_SCOPE.md`  
 **Kalıcı ürün kararları:** `project_docs/protocols/GAZETTE_UNIFIED_PROJECT_SOURCE.md`
 
@@ -44,6 +44,13 @@ Bitiş tanımı:
 **Durum:** `ACTIVE`
 
 Kod yazmadan önce mevcut v1.1 sisteminin hangi parçalarının V2'de yeniden kullanılacağı belirlenir.
+
+**Kanonik karar kaydı:** `project_docs/v2/002_V1_ENGINE_MOBILE_ARCHITECTURE_AUDIT.md`
+
+- Mobile client: Flutter; fixed logical newspaper canvas, explicit hit regions ve iki modda shared edition session.
+- Backend: Python FastAPI + PostgreSQL durable job/metadata + ayrı Python worker; immutable asset'ler object storage'da.
+- Canonical sınır: versioned interactive edition document; mevcut üç sayfalı issue JSON yalnız legacy adapter girdisi.
+- Sıralama gate'i: Q03 bundled fixture/local asset ile tamamen offline kanıtlanmadan live RSS, AI veya backend entegrasyonu başlamaz.
 
 Audit en az şunları kapsar:
 
