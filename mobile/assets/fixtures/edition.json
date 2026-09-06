@@ -1,0 +1,259 @@
+{
+  "contract_version": "gazet-e.edition.v1",
+  "edition": {
+    "id": "q03-proof-2026-09-07",
+    "title": "7 EYLÜL 2026 • Q03 KANIT BASKISI",
+    "generated_at": "2026-09-07T08:30:00+03:00",
+    "locale": "tr-TR",
+    "brand": {
+      "name": "Gazet+E",
+      "masthead": "GAZET+E"
+    }
+  },
+  "pages": [
+    {
+      "id": "front",
+      "order": 1,
+      "label": "Sayfa 1",
+      "section": "Gündem",
+      "canvas": { "width": 1000, "height": 1414, "unit": "logical" },
+      "placements": [
+        {
+          "id": "front-hero",
+          "article_id": "article-city-signals",
+          "role": "hero",
+          "rect": { "x": 40, "y": 180, "width": 600, "height": 660 },
+          "hit_regions": [
+            { "id": "front-hero-read", "action": "open_reading", "rect": { "x": 40, "y": 180, "width": 600, "height": 600 }, "accessibility_label": "Kentler yeni güne ortak veriyle hazırlanıyor haberini oku" },
+            { "id": "front-hero-source", "action": "open_source", "rect": { "x": 40, "y": 780, "width": 600, "height": 60 }, "accessibility_label": "Kentler haberinin açık fixture kaynağına git" }
+          ]
+        },
+        {
+          "id": "front-secondary",
+          "article_id": "article-library-night",
+          "role": "secondary",
+          "rect": { "x": 660, "y": 180, "width": 300, "height": 315 },
+          "hit_regions": [
+            { "id": "front-secondary-read", "action": "open_reading", "rect": { "x": 660, "y": 180, "width": 300, "height": 260 }, "accessibility_label": "Mahalle kütüphanelerinde gece erişimi haberini oku" },
+            { "id": "front-secondary-source", "action": "open_source", "rect": { "x": 660, "y": 440, "width": 300, "height": 55 }, "accessibility_label": "Kütüphane haberinin açık fixture kaynağına git" }
+          ]
+        },
+        {
+          "id": "front-brief",
+          "article_id": "article-rail-map",
+          "role": "brief",
+          "rect": { "x": 660, "y": 515, "width": 300, "height": 325 },
+          "hit_regions": [
+            { "id": "front-brief-read", "action": "open_reading", "rect": { "x": 660, "y": 515, "width": 300, "height": 270 }, "accessibility_label": "Raylı sistem haritası haberini oku" },
+            { "id": "front-brief-source", "action": "open_source", "rect": { "x": 660, "y": 785, "width": 300, "height": 55 }, "accessibility_label": "Ulaşım haberinin açık fixture kaynağına git" }
+          ]
+        },
+        {
+          "id": "front-wide-brief",
+          "article_id": "article-culture-route",
+          "role": "brief",
+          "rect": { "x": 40, "y": 870, "width": 920, "height": 420 },
+          "hit_regions": [
+            { "id": "front-wide-read", "action": "open_reading", "rect": { "x": 40, "y": 870, "width": 920, "height": 360 }, "accessibility_label": "Yeni kültür rotası haberini oku" },
+            { "id": "front-wide-source", "action": "open_source", "rect": { "x": 40, "y": 1230, "width": 920, "height": 60 }, "accessibility_label": "Kültür haberinin açık fixture kaynağına git" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "climate",
+      "order": 2,
+      "label": "Sayfa 2",
+      "section": "Yaşam ve İklim",
+      "canvas": { "width": 1000, "height": 1414, "unit": "logical" },
+      "placements": [
+        {
+          "id": "climate-hero",
+          "article_id": "article-climate-city",
+          "role": "hero",
+          "rect": { "x": 40, "y": 180, "width": 920, "height": 500 },
+          "hit_regions": [
+            { "id": "climate-hero-read", "action": "open_reading", "rect": { "x": 40, "y": 180, "width": 920, "height": 440 }, "accessibility_label": "Şehirler iklim direncini ortak alanlarda arıyor haberini oku" },
+            { "id": "climate-hero-source", "action": "open_source", "rect": { "x": 40, "y": 620, "width": 920, "height": 60 }, "accessibility_label": "İklim haberinin açık fixture kaynağına git" }
+          ]
+        },
+        {
+          "id": "climate-secondary-water",
+          "article_id": "article-water-circles",
+          "role": "secondary",
+          "rect": { "x": 40, "y": 710, "width": 440, "height": 570 },
+          "hit_regions": [
+            { "id": "climate-water-read", "action": "open_reading", "rect": { "x": 40, "y": 710, "width": 440, "height": 510 }, "accessibility_label": "Suyun kent içindeki yeni döngüsü haberini oku" },
+            { "id": "climate-water-source", "action": "open_source", "rect": { "x": 40, "y": 1220, "width": 440, "height": 60 }, "accessibility_label": "Su haberinin açık fixture kaynağına git" }
+          ]
+        },
+        {
+          "id": "climate-secondary-coop",
+          "article_id": "article-neighborhood-coop",
+          "role": "secondary",
+          "rect": { "x": 520, "y": 710, "width": 440, "height": 570 },
+          "hit_regions": [
+            { "id": "climate-coop-read", "action": "open_reading", "rect": { "x": 520, "y": 710, "width": 440, "height": 510 }, "accessibility_label": "Mahalle kooperatifleri haberini oku" },
+            { "id": "climate-coop-source", "action": "open_source", "rect": { "x": 520, "y": 1220, "width": 440, "height": 60 }, "accessibility_label": "Kooperatif haberinin açık fixture kaynağına git" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "technology",
+      "order": 3,
+      "label": "Sayfa 3",
+      "section": "Teknoloji",
+      "canvas": { "width": 1000, "height": 1414, "unit": "logical" },
+      "placements": [
+        {
+          "id": "technology-hero",
+          "article_id": "article-civic-technology",
+          "role": "hero",
+          "rect": { "x": 40, "y": 180, "width": 580, "height": 610 },
+          "hit_regions": [
+            { "id": "technology-hero-read", "action": "open_reading", "rect": { "x": 40, "y": 180, "width": 580, "height": 550 }, "accessibility_label": "Güvenilir teknoloji insan ölçeğine dönüyor haberini oku" },
+            { "id": "technology-hero-source", "action": "open_source", "rect": { "x": 40, "y": 730, "width": 580, "height": 60 }, "accessibility_label": "Teknoloji haberinin açık fixture kaynağına git" }
+          ]
+        },
+        {
+          "id": "technology-secondary",
+          "article_id": "article-open-tools",
+          "role": "secondary",
+          "rect": { "x": 640, "y": 180, "width": 320, "height": 610 },
+          "hit_regions": [
+            { "id": "technology-secondary-read", "action": "open_reading", "rect": { "x": 640, "y": 180, "width": 320, "height": 550 }, "accessibility_label": "Açık araçlar küçük ekipleri hızlandırıyor haberini oku" },
+            { "id": "technology-secondary-source", "action": "open_source", "rect": { "x": 640, "y": 730, "width": 320, "height": 60 }, "accessibility_label": "Açık araçlar haberinin fixture kaynağına git" }
+          ]
+        },
+        {
+          "id": "technology-brief",
+          "article_id": "article-digital-craft",
+          "role": "brief",
+          "rect": { "x": 40, "y": 820, "width": 920, "height": 460 },
+          "hit_regions": [
+            { "id": "technology-brief-read", "action": "open_reading", "rect": { "x": 40, "y": 820, "width": 920, "height": 400 }, "accessibility_label": "Dijital zanaat haberini oku" },
+            { "id": "technology-brief-source", "action": "open_source", "rect": { "x": 40, "y": 1220, "width": 920, "height": 60 }, "accessibility_label": "Dijital zanaat haberinin fixture kaynağına git" }
+          ]
+        }
+      ]
+    }
+  ],
+  "articles": [
+    {
+      "id": "article-city-signals",
+      "cluster_id": "cluster-city-systems",
+      "headline": "Kentler yeni güne ortak veriyle hazırlanıyor",
+      "dek": "Q03 fixture’ı, bilgi akışlarının insan ölçeğinde buluştuğu kavramsal bir şehir hikâyesi sunuyor.",
+      "summary": "Bu metin yalnız reader etkileşimini kanıtlamak için Gazet+E tarafından hazırlanmış yerel ve deterministik bir fixture özetidir.",
+      "reading_body": [
+        { "type": "paragraph", "text": "Gazete Modu’ndaki manşet alanı fixed logical koordinatlarla yerleşir. Okuma Modu aynı article kimliğini kullanır ve ağ bağlantısına ihtiyaç duymaz." },
+        { "type": "paragraph", "text": "Bu içerik gerçek bir olay haberi değildir. Kavramsal görsel, belge veya kanıt fotoğrafı gibi sunulmaz." }
+      ],
+      "primary_source_id": "source-city",
+      "sources": [
+        { "id": "source-city", "name": "Q03 Açık Fixture Kaynağı", "canonical_url": "https://example.org/gazet-e/q03/city-signals", "published_at": "2026-09-07T07:45:00+03:00" }
+      ],
+      "visual": { "asset_path": "assets/images/city-signals.png", "alt": "Gün doğumunda soyut şehir ve bilgi akışı illüstrasyonu", "transparency_label": "AI ile üretilmiş kavramsal editoryal placeholder • Q03 proof", "generated_by_ai": true, "safety_class": "conceptual" }
+    },
+    {
+      "id": "article-library-night",
+      "cluster_id": "cluster-public-space",
+      "headline": "Mahalle kütüphanelerinde gece erişimi",
+      "dek": "Sessiz çalışma alanları için yeni saat düzeni üzerine kurgusal fixture özeti.",
+      "summary": "Bu yerel içerik yalnız secondary story hiyerarşisini ve Okuma Modu sunumunu sınar.",
+      "reading_body": [{ "type": "paragraph", "text": "Fixture metni remote haber, RSS veya backend çağrısından gelmez; uygulama paketinin içinden okunur." }],
+      "primary_source_id": "source-library",
+      "sources": [{ "id": "source-library", "name": "Q03 Açık Fixture Kaynağı", "canonical_url": "https://example.org/gazet-e/q03/library-night", "published_at": "2026-09-07T06:30:00+03:00" }],
+      "visual": { "asset_path": "assets/images/city-signals.png", "alt": "Soyut kentsel yapı ve ışık katmanları", "transparency_label": "AI ile üretilmiş kavramsal editoryal placeholder • Q03 proof", "generated_by_ai": true, "safety_class": "conceptual" }
+    },
+    {
+      "id": "article-rail-map",
+      "cluster_id": "cluster-mobility",
+      "headline": "Raylı sistem haritası yürüyüş bağlantılarıyla sadeleşiyor",
+      "dek": "Brief story geometrisinin okunabilirliğini sınayan offline içerik.",
+      "summary": "Gazet+E Q03 fixture’ı kısa başlık, özet ve source affordance ayrımını test eder.",
+      "reading_body": [{ "type": "paragraph", "text": "Ordinary article tap Okuma Modu’nu açar; yalnız açık kaynak eylemi sistem tarayıcısına gider." }],
+      "primary_source_id": "source-rail",
+      "sources": [{ "id": "source-rail", "name": "Q03 Açık Fixture Kaynağı", "canonical_url": "https://example.org/gazet-e/q03/rail-map" }],
+      "visual": { "asset_path": "assets/images/city-signals.png", "alt": "Soyut kent hatları ve bağlantı noktaları", "transparency_label": "AI ile üretilmiş kavramsal editoryal placeholder • Q03 proof", "generated_by_ai": true, "safety_class": "conceptual" }
+    },
+    {
+      "id": "article-culture-route",
+      "cluster_id": "cluster-culture",
+      "headline": "Yeni kültür rotası üç semti yaya hattında buluşturuyor",
+      "dek": "Geniş brief placement ve erişilebilir hit-region kanıtı için hazırlanmış kurgusal içerik.",
+      "summary": "Bu Q03 özeti, gazete sayfasından mobil-okunur metne geçişin aynı edition session’ında kalmasını kanıtlar.",
+      "reading_body": [{ "type": "paragraph", "text": "Geri eylemi kullanıcıyı aynı sayfa ve viewport bağlamına döndürür." }],
+      "primary_source_id": "source-culture",
+      "sources": [{ "id": "source-culture", "name": "Q03 Açık Fixture Kaynağı", "canonical_url": "https://example.org/gazet-e/q03/culture-route", "published_at": "2026-09-06T22:10:00+03:00" }],
+      "visual": { "asset_path": "assets/images/city-signals.png", "alt": "Kavramsal şehir katmanları ve bağlantı çizgileri", "transparency_label": "AI ile üretilmiş kavramsal editoryal placeholder • Q03 proof", "generated_by_ai": true, "safety_class": "conceptual" }
+    },
+    {
+      "id": "article-climate-city",
+      "cluster_id": "cluster-climate-resilience",
+      "headline": "Şehirler iklim direncini ortak alanlarda arıyor",
+      "dek": "Yeşil doku, su yolları ve kamusal alanları bir arada düşünen kavramsal ikinci sayfa manşeti.",
+      "summary": "Kavramsal fixture, gerçek bir afet ya da olay fotoğrafı iddiası taşımadan iklim temasını sunar.",
+      "reading_body": [{ "type": "paragraph", "text": "Görsel risograph üslubundadır ve Okuma Modu’nda AI/editoryal placeholder etiketi açıkça görünür." }],
+      "primary_source_id": "source-climate",
+      "sources": [{ "id": "source-climate", "name": "Q03 Açık Fixture Kaynağı", "canonical_url": "https://example.org/gazet-e/q03/climate-city", "published_at": "2026-09-07T08:00:00+03:00" }],
+      "visual": { "asset_path": "assets/images/climate-resilience.png", "alt": "Yeşil yapraklar, su yolları ve şehir biçimlerinden oluşan editoryal illüstrasyon", "transparency_label": "AI ile üretilmiş kavramsal editoryal placeholder • Q03 proof", "generated_by_ai": true, "safety_class": "conceptual" }
+    },
+    {
+      "id": "article-water-circles",
+      "cluster_id": "cluster-water",
+      "headline": "Suyun kent içindeki yeni döngüsü",
+      "dek": "Yağmur bahçeleri ve geçirgen yüzeyleri temsil eden fixture anlatısı.",
+      "summary": "Secondary yerleşim, local image ve publication time alanlarını birlikte kanıtlar.",
+      "reading_body": [{ "type": "paragraph", "text": "Bütün içerik ve görseller mobile asset bundle içindedir; edition remote erişim gerektirmez." }],
+      "primary_source_id": "source-water",
+      "sources": [{ "id": "source-water", "name": "Q03 Açık Fixture Kaynağı", "canonical_url": "https://example.org/gazet-e/q03/water-circles", "published_at": "2026-09-07T07:20:00+03:00" }],
+      "visual": { "asset_path": "assets/images/climate-resilience.png", "alt": "Soyut su kıvrımları ve yeşil kent katmanları", "transparency_label": "AI ile üretilmiş kavramsal editoryal placeholder • Q03 proof", "generated_by_ai": true, "safety_class": "conceptual" }
+    },
+    {
+      "id": "article-neighborhood-coop",
+      "cluster_id": "cluster-local-resilience",
+      "headline": "Mahalle kooperatifleri paylaşım ağını büyütüyor",
+      "dek": "İkinci secondary placement için yerel, kurgusal ve offline fixture metni.",
+      "summary": "Gazet+E reader proof, içerik doğruluğu iddiası yerine etkileşim ve layout davranışını sınar.",
+      "reading_body": [{ "type": "paragraph", "text": "Source URL açık HTTPS örneğidir; tarayıcı yalnız kullanıcı Kaynağa Git dediğinde açılır." }],
+      "primary_source_id": "source-coop",
+      "sources": [{ "id": "source-coop", "name": "Q03 Açık Fixture Kaynağı", "canonical_url": "https://example.org/gazet-e/q03/neighborhood-coop" }],
+      "visual": { "asset_path": "assets/images/climate-resilience.png", "alt": "Topluluk ve doğal sistemleri temsil eden soyut illüstrasyon", "transparency_label": "AI ile üretilmiş kavramsal editoryal placeholder • Q03 proof", "generated_by_ai": true, "safety_class": "conceptual" }
+    },
+    {
+      "id": "article-civic-technology",
+      "cluster_id": "cluster-trustworthy-tech",
+      "headline": "Güvenilir teknoloji insan ölçeğine dönüyor",
+      "dek": "Devre çizgileri ve kamusal mimariyi birleştiren üçüncü sayfa manşeti.",
+      "summary": "Bu fixture metni, teknoloji temasını ürün veya şirket iddiası olmadan kavramsal düzeyde sunar.",
+      "reading_body": [{ "type": "paragraph", "text": "Q03 kapsamında ağ istemcisi, analytics, database veya AI provider çağrısı bulunmaz." }],
+      "primary_source_id": "source-tech",
+      "sources": [{ "id": "source-tech", "name": "Q03 Açık Fixture Kaynağı", "canonical_url": "https://example.org/gazet-e/q03/civic-technology", "published_at": "2026-09-07T08:10:00+03:00" }],
+      "visual": { "asset_path": "assets/images/civic-technology.png", "alt": "Devre çizgileriyle birleşen soyut kamusal mimari illüstrasyonu", "transparency_label": "AI ile üretilmiş kavramsal editoryal placeholder • Q03 proof", "generated_by_ai": true, "safety_class": "conceptual" }
+    },
+    {
+      "id": "article-open-tools",
+      "cluster_id": "cluster-open-tools",
+      "headline": "Açık araçlar küçük ekipleri hızlandırıyor",
+      "dek": "Teknoloji sayfasının secondary hiyerarşisini sınayan kısa fixture.",
+      "summary": "Local parser article/source ilişkisini doğrular; dış bağlantı yalnız explicit source action ile açılır.",
+      "reading_body": [{ "type": "paragraph", "text": "Bu proof final package, store veya backend kararı değildir." }],
+      "primary_source_id": "source-open-tools",
+      "sources": [{ "id": "source-open-tools", "name": "Q03 Açık Fixture Kaynağı", "canonical_url": "https://example.org/gazet-e/q03/open-tools", "published_at": "2026-09-07T07:05:00+03:00" }],
+      "visual": { "asset_path": "assets/images/civic-technology.png", "alt": "Soyut dijital altyapı ve bağlantı noktaları", "transparency_label": "AI ile üretilmiş kavramsal editoryal placeholder • Q03 proof", "generated_by_ai": true, "safety_class": "conceptual" }
+    },
+    {
+      "id": "article-digital-craft",
+      "cluster_id": "cluster-digital-craft",
+      "headline": "Dijital zanaat yeniden görünür oluyor",
+      "dek": "Geniş brief alanı tipografi, kaynak eylemi ve accessibility semantics için kullanılıyor.",
+      "summary": "Gazet+E Q03 baskısı, fixed canvas ile mobil Okuma Modu arasındaki geçişi izole biçimde kanıtlar.",
+      "reading_body": [{ "type": "paragraph", "text": "Deterministik fixture ve golden çıktısı aynı kompozisyonun regression kontrolünü sağlar." }],
+      "primary_source_id": "source-craft",
+      "sources": [{ "id": "source-craft", "name": "Q03 Açık Fixture Kaynağı", "canonical_url": "https://example.org/gazet-e/q03/digital-craft" }],
+      "visual": { "asset_path": "assets/images/civic-technology.png", "alt": "Geometrik katmanlar ve devre izlerinden oluşan editoryal illüstrasyon", "transparency_label": "AI ile üretilmiş kavramsal editoryal placeholder • Q03 proof", "generated_by_ai": true, "safety_class": "conceptual" }
+    }
+  ]
+}

@@ -78,7 +78,7 @@ Architecture çıktısı en az şunları kesinleştirir:
 
 ### Q03 — Static interactive newspaper reader vertical slice
 
-**Durum:** `NEXT`
+**Durum:** `COMPLETE`
 
 Fixture/sample edition ile canlı RSS/AI olmadan çekirdek mobil deneyim kanıtlanır.
 
@@ -98,7 +98,7 @@ Bu Q, product-market riski yüksek temel etkileşimi backend yatırımından ön
 
 ### Q04 — Edition document model + interactive layout contract
 
-**Durum:** `QUEUED`
+**Durum:** `NEXT`
 
 - edition ID/timestamp;
 - page identity/order;
