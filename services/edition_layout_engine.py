@@ -13,6 +13,7 @@ from services.edition_layout_models import (
     LayoutPlan,
     LayoutPolicy,
     LayoutStory,
+    OverflowReason,
     OverflowItem,
     Placement,
     Rect,
@@ -26,7 +27,7 @@ from services.edition_layout_templates import (
     TemplateSlot,
 )
 
-LAYOUT_ENGINE_VERSION = "gazet-e.layout-engine.v1"
+LAYOUT_ENGINE_VERSION = "gazet-e.layout-engine.v2"
 LAYOUT_POLICY_VERSION = "gazet-e.layout-policy.v1"
 
 
@@ -61,11 +62,7 @@ def build_layout_plan(
     overflow_items = tuple(
         OverflowItem(
             article_id=story.article_id,
-            reason=(
-                "content_exceeds_capacity"
-                if not _fits_any_template(story, registry)
-                else "page_limit_exhausted"
-            ),
+            reason=_overflow_reason(story, registry),
         )
         for story in remaining
     )
@@ -109,6 +106,17 @@ def _fits(story: LayoutStory, slot: TemplateSlot) -> bool:
 
 def _fits_any_template(story: LayoutStory, registry: TemplateRegistry) -> bool:
     return any(_fits(story, slot) for item in registry.templates for slot in item.slots)
+
+
+def _overflow_reason(
+    story: LayoutStory, registry: TemplateRegistry
+) -> OverflowReason:
+    if not _fits_any_template(story, registry):
+        return "content_exceeds_capacity"
+    continuation = registry.for_page(2)
+    if not any(_fits(story, slot) for slot in continuation.slots):
+        return "continuation_capacity_exhausted"
+    return "page_limit_exhausted"
 
 
 def _build_page(

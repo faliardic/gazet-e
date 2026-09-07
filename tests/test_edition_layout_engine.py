@@ -122,10 +122,18 @@ def test_page_ids_and_orders_are_unique_contiguous_and_deterministic() -> None:
 
 def test_template_registry_is_static_bounded_and_versioned() -> None:
     registry = DEFAULT_TEMPLATE_REGISTRY
-    assert registry.version == TEMPLATE_REGISTRY_VERSION
+    assert registry.version == TEMPLATE_REGISTRY_VERSION == "gazet-e.layout-templates.v2"
     assert 1 <= len(registry.templates) <= 8
     assert {item.id for item in registry.templates} == {"front", "inside"}
-    assert all(item.version and 1 <= len(item.slots) <= 8 for item in registry.templates)
+    assert all(
+        item.version == "3" and 1 <= len(item.slots) <= 8
+        for item in registry.templates
+    )
+    assert all(
+        slot.requires_visual == (slot.role in {"hero", "secondary"})
+        for item in registry.templates
+        for slot in item.slots
+    )
     with pytest.raises(ValueError):
         TemplateRegistry(version="unbounded", templates=registry.templates * 5)
 
@@ -140,8 +148,75 @@ def test_visual_availability_changes_role_and_key_without_external_call() -> Non
     no_visual_plan = build_layout_plan(
         (without_visual, _story(2, has_visual=False))
     )
-    assert all(item.role != "hero" for item in no_visual_plan.pages[0].placements)
+    assert all(
+        item.role == "brief"
+        for page in no_visual_plan.pages
+        for item in page.placements
+    )
     assert visual_plan.layout_key != no_visual_plan.layout_key
+
+
+def test_all_no_visual_stories_use_briefs_across_multiple_pages() -> None:
+    stories = tuple(_story(index, has_visual=False) for index in range(1, 5))
+    plan = build_layout_plan(stories, policy=LayoutPolicy(max_pages=3))
+    assert len(plan.pages) == 3
+    assert _placed_ids(plan) == [story.article_id for story in stories]
+    assert not plan.overflow.items
+    assert all(
+        placement.role == "brief"
+        for page in plan.pages
+        for placement in page.placements
+    )
+
+
+def test_mixed_visual_availability_never_uses_image_roles_without_visual() -> None:
+    stories = tuple(
+        _story(index, has_visual=index % 2 == 0) for index in range(1, 9)
+    )
+    story_by_id = {story.article_id: story for story in stories}
+    plan = build_layout_plan(stories, policy=LayoutPolicy(max_pages=4))
+    assert len(plan.pages) >= 2
+    for page in plan.pages:
+        for placement in page.placements:
+            if placement.role in {"hero", "secondary"}:
+                assert story_by_id[placement.article_id].has_visual
+            if not story_by_id[placement.article_id].has_visual:
+                assert placement.role == "brief"
+    assert not plan.overflow.items
+
+
+def test_front_only_text_capacity_has_truthful_continuation_overflow() -> None:
+    stories = (
+        _story(1, headline="H" * 150, dek="D" * 360, has_visual=False),
+        _story(2, headline="I" * 150, dek="E" * 360, has_visual=False),
+    )
+    plan = build_layout_plan(stories, policy=LayoutPolicy(max_pages=8))
+    assert len(plan.pages) == 1
+    assert _placed_ids(plan) == [stories[0].article_id]
+    assert [(item.article_id, item.reason) for item in plan.overflow.items] == [
+        (stories[1].article_id, "continuation_capacity_exhausted")
+    ]
+
+
+def test_front_only_text_capacity_is_stable_for_shuffled_input() -> None:
+    stories = (
+        _story(1, headline="H" * 150, dek="D" * 360, has_visual=False),
+        _story(2, headline="I" * 150, dek="E" * 360, has_visual=False),
+    )
+    assert _canonical_json(
+        build_layout_plan(stories, policy=LayoutPolicy(max_pages=8))
+    ) == _canonical_json(
+        build_layout_plan(tuple(reversed(stories)), policy=LayoutPolicy(max_pages=8))
+    )
+
+
+def test_genuine_page_limit_exhaustion_is_distinct_from_continuation_capacity() -> None:
+    stories = tuple(_story(index, has_visual=False) for index in range(1, 4))
+    plan = build_layout_plan(stories, policy=LayoutPolicy(max_pages=1))
+    assert len(plan.pages) == 1
+    assert [(item.article_id, item.reason) for item in plan.overflow.items] == [
+        (stories[2].article_id, "page_limit_exhausted")
+    ]
 
 
 def test_page_limit_overflow_is_complete_ordered_and_never_duplicates() -> None:
@@ -184,7 +259,7 @@ def test_layout_key_changes_for_policy_and_template_registry() -> None:
     registry_change = build_layout_plan(
         stories,
         policy=LayoutPolicy(max_pages=2),
-        registry=replace(DEFAULT_TEMPLATE_REGISTRY, version="gazet-e.layout-templates.v2"),
+        registry=replace(DEFAULT_TEMPLATE_REGISTRY, version="gazet-e.layout-templates.v3"),
     )
     assert len({baseline.layout_key, policy_change.layout_key, registry_change.layout_key}) == 3
 
@@ -200,7 +275,7 @@ def test_layout_key_changes_with_engine_and_policy_contract_versions(
         patch.setattr(
             edition_layout_engine,
             "LAYOUT_ENGINE_VERSION",
-            "gazet-e.layout-engine.v2",
+            "gazet-e.layout-engine.v3",
         )
         engine_change = edition_layout_engine.build_layout_plan((story,))
     with monkeypatch.context() as patch:
@@ -253,6 +328,44 @@ def test_layout_models_reject_unknown_or_inconsistent_fields() -> None:
         )
 
 
+def test_layout_plan_model_validate_rejects_duplicate_overflow_article_ids() -> None:
+    plan = build_layout_plan(
+        tuple(_story(index) for index in range(1, 8)),
+        policy=LayoutPolicy(max_pages=1),
+    )
+    payload = plan.model_dump(mode="json")
+    payload["overflow"]["items"][1]["article_id"] = payload["overflow"]["items"][0][
+        "article_id"
+    ]
+    with pytest.raises(ValidationError, match="overflow article IDs must be unique"):
+        LayoutPlan.model_validate(payload)
+
+
+def test_layout_plan_model_validate_rejects_pages_beyond_declared_limit() -> None:
+    plan = build_layout_plan(
+        tuple(_story(index) for index in range(1, 8)),
+        policy=LayoutPolicy(max_pages=2),
+    )
+    payload = plan.model_dump(mode="json")
+    payload["overflow"]["page_limit"] = 1
+    with pytest.raises(ValidationError, match="page count cannot exceed"):
+        LayoutPlan.model_validate(payload)
+
+
+def test_layout_plan_json_round_trip_preserves_identity_and_counts() -> None:
+    plan = build_layout_plan(
+        tuple(_story(index) for index in range(1, 9)),
+        policy=LayoutPolicy(max_pages=2),
+    )
+    restored = LayoutPlan.model_validate_json(plan.model_dump_json())
+    assert restored == plan
+    placed = _placed_ids(restored)
+    overflow = [item.article_id for item in restored.overflow.items]
+    assert len(placed) == restored.overflow.placed_story_count
+    assert len(placed) + len(overflow) == restored.overflow.input_story_count
+    assert len(placed + overflow) == len(set(placed + overflow))
+
+
 def test_q09_modules_have_no_network_provider_browser_or_pdf_path() -> None:
     from services import (
         edition_layout_engine,
@@ -285,7 +398,7 @@ def test_q09_modules_have_no_network_provider_browser_or_pdf_path() -> None:
         "signed_url",
     ):
         assert forbidden not in sources
-    assert LAYOUT_ENGINE_VERSION == "gazet-e.layout-engine.v1"
+    assert LAYOUT_ENGINE_VERSION == "gazet-e.layout-engine.v2"
     assert LAYOUT_POLICY_VERSION == "gazet-e.layout-policy.v1"
 
 

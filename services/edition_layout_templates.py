@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 from services.edition_layout_models import Canvas, PlacementRole, Rect
 
-TEMPLATE_REGISTRY_VERSION = "gazet-e.layout-templates.v1"
+TEMPLATE_REGISTRY_VERSION = "gazet-e.layout-templates.v2"
 SOURCE_AFFORDANCE_HEIGHT = 56
 
 
@@ -70,7 +70,7 @@ CANVAS = Canvas()
 
 FRONT_TEMPLATE = TemplateDefinition(
     id="front",
-    version="2",
+    version="3",
     canvas=CANVAS,
     slots=(
         TemplateSlot(
@@ -87,6 +87,7 @@ FRONT_TEMPLATE = TemplateDefinition(
             rect=Rect(x=660, y=180, width=300, height=315),
             max_headline_chars=80,
             max_dek_chars=150,
+            requires_visual=True,
         ),
         TemplateSlot(
             id="rail-brief",
@@ -107,7 +108,7 @@ FRONT_TEMPLATE = TemplateDefinition(
 
 INSIDE_TEMPLATE = TemplateDefinition(
     id="inside",
-    version="2",
+    version="3",
     canvas=CANVAS,
     slots=(
         TemplateSlot(
@@ -124,6 +125,7 @@ INSIDE_TEMPLATE = TemplateDefinition(
             rect=Rect(x=40, y=710, width=440, height=570),
             max_headline_chars=100,
             max_dek_chars=300,
+            requires_visual=True,
         ),
         TemplateSlot(
             id="brief",

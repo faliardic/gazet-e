@@ -9,7 +9,11 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 SHA256_PATTERN = r"^sha256:[0-9a-f]{64}$"
 PlacementRole = Literal["hero", "secondary", "brief"]
 HitAction = Literal["open_reading", "open_source"]
-OverflowReason = Literal["page_limit_exhausted", "content_exceeds_capacity"]
+OverflowReason = Literal[
+    "page_limit_exhausted",
+    "continuation_capacity_exhausted",
+    "content_exceeds_capacity",
+]
 
 
 class FrozenModel(BaseModel):
@@ -181,6 +185,9 @@ class LayoutOverflow(FrozenModel):
 
     @model_validator(mode="after")
     def validate_counts(self) -> LayoutOverflow:
+        overflow_ids = [item.article_id for item in self.items]
+        if len(overflow_ids) != len(set(overflow_ids)):
+            raise ValueError("overflow article IDs must be unique")
         if self.placed_story_count + len(self.items) != self.input_story_count:
             raise ValueError("overflow counts must preserve every input identity")
         if (self.status == "complete") != (not self.items):
@@ -198,6 +205,8 @@ class LayoutPlan(FrozenModel):
 
     @model_validator(mode="after")
     def validate_plan_identity(self) -> LayoutPlan:
+        if len(self.pages) > self.overflow.page_limit:
+            raise ValueError("page count cannot exceed the declared page limit")
         orders = [page.order for page in self.pages]
         if orders != list(range(1, len(self.pages) + 1)):
             raise ValueError("page order must be contiguous and deterministic")

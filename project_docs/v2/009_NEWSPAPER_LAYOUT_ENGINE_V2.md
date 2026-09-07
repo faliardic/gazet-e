@@ -6,8 +6,13 @@
 
 **Exact base:** `30e22738040268ea8a8db7f16c83dee4b60dcfa2`
 
-**Completion:** `PASS` — focused Q09 `25 passed`; relevant non-PostgreSQL
-regression `210 passed, 1 skipped`; Q09 is `COMPLETE` and Q10 is `NEXT`.
+**Deterministic acceptance:** `PASS` — corrected focused Q09 suite `33 passed`,
+including the unchanged Q04 `CanonicalEditionValidator` projection path. The
+pre-correction relevant non-PostgreSQL baseline was `210 passed, 1 skipped`;
+the correction has no consumer outside the focused Q09 boundary, so that broad
+suite was not repeated. Independent review of the corrected head is `PENDING`.
+The proposed branch truth remains Q09 `COMPLETE` and Q10 `NEXT`; neither status
+is represented as merged `main` truth before review and merge.
 
 ## 1. Boundary
 
@@ -30,9 +35,10 @@ publication wiring.
 
 Versions are fixed:
 
-- layout engine: `gazet-e.layout-engine.v1`;
+- layout engine: `gazet-e.layout-engine.v2`;
 - layout policy: `gazet-e.layout-policy.v1`;
-- template registry: `gazet-e.layout-templates.v1`.
+- template registry: `gazet-e.layout-templates.v2` (`front` and `inside`
+  definitions version `3`).
 
 `LayoutStory` is an immutable, extra-forbid projection containing only:
 
@@ -59,14 +65,17 @@ width=1000, height=1414, unit=logical
 
 The bounded registry has two static versioned templates using the accepted
 `front` and `inside` vocabulary. Both reserve the Q03 masthead/top margin and
-40-unit paper margins. `front` contains one visual-required hero, one secondary
-and two brief slots. `inside` contains one visual-required hero, one secondary
-and one brief slot. Geometry is finite, positive, non-overlapping and inside the
-canvas. The registry and each template contain no more than eight entries/slots.
+40-unit paper margins. `front` contains one visual-required hero, one
+visual-required secondary and two brief slots. `inside` contains one
+visual-required hero, one visual-required secondary and one brief slot. Geometry
+is finite, positive, non-overlapping and inside the canvas. The registry and
+each template contain no more than eight entries/slots.
 
-Hero is the only image-heavy role and is eligible only when the caller reports a
-QA-passed visual. Secondary and brief slots are text-capable. A missing visual
-never triggers a fetch or generation and never invents an asset.
+Hero and secondary match the accepted renderer's image-bearing roles and are
+eligible only when the caller reports a QA-passed visual. Brief is the sole
+text-only role. A missing visual is routed to an eligible brief or truthful
+structured overflow; it never triggers a fetch or generation and never invents
+an asset. Q10 still owns final edition/visual fallback assembly.
 
 Each slot defines conservative headline/dek character capacity. Content that
 does not fit any eligible slot is not clipped into a neighboring rectangle; it
@@ -96,11 +105,14 @@ Q04 `gazet-e.edition.v1` schema; no schema or mobile transformation is needed.
 
 ## 5. Overflow and identity
 
-When `max_pages` is exhausted, every remaining canonical story is returned once
-as `page_limit_exhausted`. A story too large for every eligible registry slot is
-returned once as `content_exceeds_capacity`. `LayoutOverflow` reports terminal
-status, ordered items, total input count, placed count and page limit; counts
-must preserve all input identities.
+When `max_pages` is genuinely exhausted, every remaining continuation-eligible
+story is returned once as `page_limit_exhausted`. A story that fits a front slot
+but no inside continuation slot is returned as
+`continuation_capacity_exhausted`; increasing `max_pages` cannot falsely appear
+to resolve that condition. A story too large for every eligible registry slot
+is returned once as `content_exceeds_capacity`. `LayoutOverflow` reports
+terminal status, ordered items, total input count, placed count and page limit;
+counts must preserve unique input identities.
 
 `layout_key` is SHA-256 over canonical JSON containing:
 
@@ -128,6 +140,8 @@ structured overflow. Cross-model validation enforces:
 - no placement collision;
 - exactly one reading and one source action per placement;
 - no duplicated or simultaneously placed/overflowed article;
+- unique overflow article identities;
+- emitted page count no greater than the declared page limit;
 - exact input/placed/overflow counts.
 
 Q09 does not create article/source/visual objects or root edition metadata. A
@@ -150,12 +164,18 @@ The focused suite covers all Issue #22 requirements:
 10. deterministic unique page IDs/orders;
 11. bounded versioned registry;
 12. visual availability without external calls;
-13. structured page-limit overflow without loss/duplication;
+13. distinct continuation-capacity and genuine page-limit overflow without
+    loss/duplication, including the two-story 150/360-character counterexample;
 14. content/policy/template cache-key invalidation;
 15. iteration-order-stable keys;
 16. unchanged Q04 schema validation;
 17. protected-path isolation;
 18. absence of network/provider/browser/PDF/Playwright paths.
+
+The corrected matrix additionally covers all-no-visual and mixed visual
+availability across multiple pages, shuffled continuation input, validated
+duplicate-overflow/page-limit rejection, and a positive JSON round trip with
+identity/count conservation.
 
 Synthetic/local fixtures are used exclusively. No mobile/device gate is opened
 because Q09 preserves the accepted fixed-canvas rendering language. Integrated
