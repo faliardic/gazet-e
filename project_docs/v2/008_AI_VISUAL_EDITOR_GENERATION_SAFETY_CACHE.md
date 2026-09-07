@@ -36,7 +36,7 @@ edition schema, mobile reader, Q09 layout or Q10 publication/storage wiring.
 Versions are fixed:
 
 - brief: `gazet-e.visual-brief.v2`
-- generation prompt: `gazet-e.image-prompt.v2`
+- generation prompt: `gazet-e.image-prompt.v3`
 - style: `gazet-e.editorial-visual.v1`
 - safety: `gazet-e.visual-safety.v1`
 - semantic QA: `gazet-e.visual-qa.v2`
@@ -58,7 +58,10 @@ weapons, equipment, vehicles, weather, signage and other factual-looking event
 details. If a bounded safe brief cannot be formed, generation does not run.
 
 The runtime-private prompt is deterministic and at most 6,000 characters. It is
-never part of artifact/cache metadata, logs, diagnostics or PR evidence.
+never part of artifact/cache metadata, logs, diagnostics or PR evidence. For
+`editorial_conceptual`, the brief's exact `composition_intent` is the single
+authoritative visual grammar; the renderer adds no broader object, atmosphere or
+scene allowance.
 
 ## 3. OpenAI generation contract
 

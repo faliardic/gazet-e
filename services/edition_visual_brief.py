@@ -11,7 +11,7 @@ from services.edition_summary_models import SummaryArtifact, SummaryFactPacket
 from services.edition_visual_models import SafetyCategory, VisualBrief
 
 VISUAL_BRIEF_VERSION = "gazet-e.visual-brief.v2"
-GENERATION_PROMPT_VERSION = "gazet-e.image-prompt.v2"
+GENERATION_PROMPT_VERSION = "gazet-e.image-prompt.v3"
 STYLE_VERSION = "gazet-e.editorial-visual.v1"
 SAFETY_VERSION = "gazet-e.visual-safety.v1"
 VISUAL_QA_VERSION = "gazet-e.visual-qa.v2"
@@ -217,8 +217,11 @@ def render_generation_prompt(brief: VisualBrief) -> str:
         "locations, damage, casualties, weapons, vehicles, weather, signage, "
         "logos, watermarks, interface chrome, headline, caption, or other text. "
         "The image must visibly read as an editorial illustration, not press or "
-        "documentary evidence. For editorial_conceptual, use abstraction, symbols, "
-        "objects, or atmosphere and do not reconstruct the claimed real event. "
+        "documentary evidence. For editorial_conceptual, composition_intent is the "
+        "single authoritative visual grammar and must be followed exactly: do not "
+        "reconstruct a scene or depict an identifiable person, exact place, "
+        "event-specific equipment, vehicle, damage, casualty, signage, or any "
+        "unsupported factual-looking detail. "
         "Leave clean negative space for later newspaper layout.\n"
         + json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
     )

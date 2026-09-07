@@ -216,12 +216,25 @@ def test_mismatched_summary_identity_fails_closed() -> None:
 
 
 def test_generation_prompt_is_bounded_and_has_safety_instructions() -> None:
-    prompt = render_generation_prompt(
-        build_visual_brief(_packet(headline="Deprem için plan açıklandı"))
-    )
+    brief = build_visual_brief(_packet(headline="Deprem için plan açıklandı"))
+    prompt = render_generation_prompt(brief)
     assert len(prompt) <= MAX_PROMPT_CHARS
+    assert brief.composition_intent in prompt
+    assert "abstraction, symbols, objects, or atmosphere" not in prompt
+    assert "composition_intent is the single authoritative visual grammar" in prompt
     assert "not press or documentary evidence" in prompt
-    assert "do not reconstruct the claimed real event" in prompt
+    assert "do not reconstruct a scene" in prompt
+    for forbidden in (
+        "identifiable person",
+        "exact place",
+        "event-specific equipment",
+        "vehicle",
+        "damage",
+        "casualty",
+        "signage",
+        "unsupported factual-looking detail",
+    ):
+        assert forbidden in prompt
     assert "https://" not in prompt.casefold()
 
 
@@ -266,6 +279,20 @@ def test_corrected_contract_versions_invalidate_legacy_cache_identity(
         )
     assert current_brief.visual_brief_key != legacy_brief.visual_brief_key
     assert current_key != legacy_key
+
+
+def test_prompt_v3_cache_identity_differs_from_prompt_v2() -> None:
+    brief_v3 = build_visual_brief(_packet())
+    key_v3 = image_cache_key(
+        brief_v3, provider=PROVIDER_ID, model=REQUESTED_IMAGE_MODEL
+    )
+    brief_v2 = brief_v3.model_copy(
+        update={"prompt_version": "gazet-e.image-prompt.v2"}
+    )
+    key_v2 = image_cache_key(
+        brief_v2, provider=PROVIDER_ID, model=REQUESTED_IMAGE_MODEL
+    )
+    assert key_v3 != key_v2
 
 
 def test_exact_cache_hit_precedes_all_paid_provider_calls() -> None:
@@ -548,7 +575,7 @@ def test_visual_modules_have_only_authorized_provider_call_sites() -> None:
     assert "publisher image" not in sources.casefold()
     assert MAX_GENERATION_CONCURRENCY == 2
     assert VISUAL_BRIEF_VERSION == "gazet-e.visual-brief.v2"
-    assert GENERATION_PROMPT_VERSION == "gazet-e.image-prompt.v2"
+    assert GENERATION_PROMPT_VERSION == "gazet-e.image-prompt.v3"
     assert VISUAL_QA_VERSION == "gazet-e.visual-qa.v2"
     assert REQUESTED_IMAGE_MODEL == "gpt-image-2-2026-04-21"
     assert QA_MODEL == "gpt-5.6-terra"
