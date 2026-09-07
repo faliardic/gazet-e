@@ -148,15 +148,25 @@ not persisted.
 The earlier gate passed on revision
 `ead5f5d69eeb89785dcd82af2838ee933a5d4b88`, before the sensitive-event
 classification boundary changed, and is not closure authority for the current
-production revision. The single authorized gate on
+production revision. The initial gate on
 `21075735c5a8e765b398ea00fc68a93db75fd45c` stopped after the ordinary scenario
 failed semantic QA with `unsupported_visual_detail`; the pipeline returned
-`unavailable` and exposed no image bytes. Safe evidence: two logical calls, one
-generation attempt, generation usage 315 input / 1,372 output tokens, QA usage
-2,239 input / 25 output tokens, and estimated cost USD 0.045778. The requested
-models remained `gpt-image-2-2026-04-21` and `gpt-5.6-terra`. The sensitive
-scenario was not run. Prompt, fact packet, image bytes, raw provider responses
-and credential were not persisted.
+`unavailable` and exposed no image bytes.
+
+The owner-authorized final validation-only retry on the same production
+revision did not fully pass and will not be repeated. The ordinary scenario was
+`ready` / `editorial_illustrative` / `ordinary`: 1536x1024 WebP, 159,858 bytes,
+asset `sha256:bda85d8549ba1ef58089844bf3c3aab255fbd2fbb0b725f725a1131d9992fee4`,
+two calls, generation usage 315 input / 1,372 output tokens, QA usage 2,239 input
+/ 21 output tokens, and estimated cost USD 0.045730. The sensitive scenario was
+`unavailable` / `editorial_conceptual` / `sensitive_real_event` after semantic
+QA returned `unsupported_visual_detail`; its terminal artifact exposed no image
+bytes. It used two calls, generation usage 335 input / 1,372 output tokens, QA
+usage 2,253 input / 150 output tokens, and estimated cost USD 0.047306. Aggregate
+evidence was four logical calls, two generation attempts and estimated cost USD
+0.093036. Requested models remained `gpt-image-2-2026-04-21` and
+`gpt-5.6-terra`. Prompt, fact packet, image bytes, raw provider responses and
+credential were not persisted.
 
 The PR remains Draft for review. Organization verification, exact-model access,
 credential, moderation, budget or sensitive conceptual-QA failure remains a
