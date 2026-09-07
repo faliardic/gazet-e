@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from threading import Event, Thread
 from typing import Any, Protocol
 
 from services.edition_job_models import NEXT_STATE, JobState
@@ -11,6 +12,7 @@ from services.edition_job_store import (
     EditionImmutableConflict,
     EditionJobStore,
     JobRecord,
+    LeaseConflict,
 )
 from services.edition_job_validation import (
     CanonicalEditionError,
@@ -27,6 +29,58 @@ class StageExecutionError(Exception):
     code: str
     retryable: bool
     diagnostic: str = "Stage execution failed safely."
+
+
+class _LeaseKeepalive:
+    """Renews one live lease until its executor returns or ownership is lost."""
+
+    def __init__(
+        self,
+        store: EditionJobStore,
+        job_id: str,
+        worker_id: str,
+        lease_seconds: float,
+    ) -> None:
+        self._store = store
+        self._job_id = job_id
+        self._worker_id = worker_id
+        self._lease_seconds = lease_seconds
+        self._interval = min(5.0, lease_seconds / 3.0)
+        self._stop = Event()
+        self._failure: Exception | None = None
+        self._thread = Thread(
+            target=self._run,
+            name=f"edition-lease-{job_id}",
+            daemon=True,
+        )
+
+    def __enter__(self) -> _LeaseKeepalive:
+        self._thread.start()
+        return self
+
+    def __exit__(self, *_exc_info: object) -> None:
+        self._stop.set()
+        self._thread.join()
+
+    def ensure_owned(self) -> None:
+        if self._failure is None:
+            return
+        if isinstance(self._failure, LeaseConflict):
+            raise self._failure
+        raise LeaseConflict("Lease keepalive failed safely.") from self._failure
+
+    def _run(self) -> None:
+        while not self._stop.wait(self._interval):
+            try:
+                self._store.heartbeat(
+                    self._job_id,
+                    self._worker_id,
+                    lease_seconds=self._lease_seconds,
+                )
+            except Exception as error:
+                self._failure = error
+                self._stop.set()
+                return
 
 
 class EditionJobWorker:
@@ -79,17 +133,34 @@ class EditionJobWorker:
                     diagnostic="No executor was supplied for the current stage.",
                 )
 
-            try:
-                output = executor(job)
-            except StageExecutionError as error:
+            declared_failure: StageExecutionError | None = None
+            unexpected_failure = False
+            keepalive = _LeaseKeepalive(
+                self._store,
+                job.job_id,
+                self._worker_id,
+                self._lease_seconds,
+            )
+            with keepalive:
+                try:
+                    output = executor(job)
+                except StageExecutionError as error:
+                    declared_failure = error
+                    output = None
+                except Exception:
+                    unexpected_failure = True
+                    output = None
+            keepalive.ensure_owned()
+
+            if declared_failure is not None:
                 return self._store.fail_job(
                     job.job_id,
                     self._worker_id,
-                    code=error.code,
-                    retryable=error.retryable,
-                    diagnostic=error.diagnostic,
+                    code=declared_failure.code,
+                    retryable=declared_failure.retryable,
+                    diagnostic=declared_failure.diagnostic,
                 )
-            except Exception:
+            if unexpected_failure:
                 return self._store.fail_job(
                     job.job_id,
                     self._worker_id,

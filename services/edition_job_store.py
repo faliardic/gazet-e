@@ -482,6 +482,8 @@ class EditionJobStore:
         with self._connect() as connection:
             row = self._locked_live_job(connection, job_id, _safe_worker_id(worker_id))
             current = JobState(row["state"])
+            if row["cancellation_requested_at"] is not None:
+                return self._cancel_at_checkpoint(connection, row)
             validate_transition(current, JobState.FAILED)
             bounded_retryable = bool(retryable and row["attempt"] < max_attempts)
             row = connection.execute(

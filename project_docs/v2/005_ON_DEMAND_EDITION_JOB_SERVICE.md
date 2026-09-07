@@ -81,9 +81,14 @@ non-destructive tablo oluşturur:
 
 Worker claim transaction'ı runnable satırları sıraya koyar ve
 `FOR UPDATE SKIP LOCKED` kullanır. Canlı lease ikinci worker'a verilmez.
-Heartbeat yalnız aynı worker'ın canlı lease'ini uzatır. Lease süresi dolunca
-başka worker aynı logical job ve son durable stage/checkpoint'i artan attempt
-ile devralabilir; yeni job yaratılmaz.
+Heartbeat yalnız aynı worker'ın canlı lease'ini uzatır. Worker, executor
+çalıştığı sürece lease süresinin üçte biri ve en fazla beş saniyelik aralıkla
+ayrı bağlantı üzerinden heartbeat gönderir. Executor bittiğinde keepalive
+thread'i deterministik olarak durdurulup join edilir. Ownership kaybı veya
+heartbeat hatasında eski worker checkpoint, failure ya da publication mutation
+yapmadan fail-closed durur. Lease süresi gerçekten dolunca başka worker aynı
+logical job ve son durable stage/checkpoint'i artan attempt ile devralabilir;
+yeni job yaratılmaz.
 
 Stage tamamlanması, sonraki stage'e geçiş ve lease yenileme tek DB transaction
 içindedir. Cancellation intent'i varsa aynı checkpoint işlemi ilerlemek yerine
@@ -100,8 +105,11 @@ safe non-retryable failure üretir.
 
 Stage exception'larının ham metni response, durable diagnostic veya log
 contract'ına taşınmaz. Tanımlı stage failure yalnız bounded code, retryable
-truth ve güvenli diagnostic taşır. Son `laying_out` executor'ı JSON object
-döndürmelidir; production kod fixture veya edition uydurmaz.
+truth ve güvenli diagnostic taşır. Failure transaction'ı aynı row lock altında
+cancellation intent'ini önce kontrol eder; intent varsa declared veya unexpected
+executor failure yerine `cancelled` checkpoint'i commit edilir. Son
+`laying_out` executor'ı JSON object döndürmelidir; production kod fixture veya
+edition uydurmaz.
 
 ## 6. Canonical edition publication
 

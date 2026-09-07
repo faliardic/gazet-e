@@ -7,6 +7,7 @@ import time
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Event
 
 import psycopg
 import pytest
@@ -262,6 +263,54 @@ def test_worker_honors_cancellation_requested_inside_stage_at_checkpoint(
     assert result.cancellation_effective_at is not None
 
 
+def test_declared_stage_failure_after_cancellation_becomes_cancelled(
+    store: EditionJobStore,
+    request_data: EditionRequest,
+) -> None:
+    created = _create(store, request_data)
+
+    def cancel_then_fail(job):
+        store.request_cancellation(job.job_id)
+        raise StageExecutionError(
+            code="temporary_dependency",
+            retryable=True,
+            diagnostic="Temporary dependency unavailable.",
+        )
+
+    result = EditionJobWorker(
+        store,
+        "worker-a",
+        {JobState.COLLECTING: cancel_then_fail},
+    ).run_one()
+    assert result is not None
+    assert result.job_id == created.job_id
+    assert result.state is JobState.CANCELLED
+    assert result.failure_code is None
+    assert result.cancellation_effective_at is not None
+
+
+def test_unexpected_stage_failure_after_cancellation_becomes_cancelled(
+    store: EditionJobStore,
+    request_data: EditionRequest,
+) -> None:
+    created = _create(store, request_data)
+
+    def cancel_then_crash(job):
+        store.request_cancellation(job.job_id)
+        raise RuntimeError("unexpected executor failure")
+
+    result = EditionJobWorker(
+        store,
+        "worker-a",
+        {JobState.COLLECTING: cancel_then_crash},
+    ).run_one()
+    assert result is not None
+    assert result.job_id == created.job_id
+    assert result.state is JobState.CANCELLED
+    assert result.failure_code is None
+    assert result.cancellation_effective_at is not None
+
+
 def test_live_lease_excludes_second_worker_and_checks_ownership(
     store: EditionJobStore,
     request_data: EditionRequest,
@@ -274,6 +323,97 @@ def test_live_lease_excludes_second_worker_and_checks_ownership(
         store.heartbeat(created.job_id, "worker-b")
     renewed = store.heartbeat(created.job_id, "worker-a")
     assert renewed.lease_expires_at > claimed.lease_expires_at
+
+
+def test_executor_keepalive_prevents_reclaim_after_nominal_lease_expires(
+    store: EditionJobStore,
+    request_data: EditionRequest,
+    canonical_edition: dict[str, object],
+) -> None:
+    created = _create(store, request_data)
+    stage_started = Event()
+    release_stage = Event()
+    initial_heartbeat = []
+
+    def execute(job):
+        if job.state is JobState.COLLECTING:
+            initial_heartbeat.append(job.heartbeat_at)
+            stage_started.set()
+            assert release_stage.wait(timeout=5)
+        if job.state is JobState.LAYING_OUT:
+            return canonical_edition
+        return None
+
+    executors = {
+        state: execute
+        for state in NEXT_STATE.values()
+        if state is not JobState.READY
+    }
+    worker = EditionJobWorker(
+        store,
+        "worker-a",
+        executors,
+        lease_seconds=0.6,
+    )
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(worker.run_one)
+        assert stage_started.wait(timeout=5)
+        time.sleep(1.0)
+        durable = store.get_job(created.job_id)
+        assert durable.heartbeat_at > initial_heartbeat[0]
+        assert durable.lease_expires_at > durable.heartbeat_at
+        assert store.claim_job("worker-b", lease_seconds=0.6) is None
+        release_stage.set()
+        result = future.result(timeout=5)
+
+    assert result is not None
+    assert result.state is JobState.READY
+    assert result.checkpoint_at > initial_heartbeat[0]
+
+
+def test_worker_losing_lease_does_not_mutate_new_owners_durable_truth(
+    store: EditionJobStore,
+    request_data: EditionRequest,
+    postgres_dsn: str,
+) -> None:
+    created = _create(store, request_data)
+    stage_started = Event()
+    release_stage = Event()
+
+    def execute(_job):
+        stage_started.set()
+        assert release_stage.wait(timeout=5)
+        return None
+
+    worker = EditionJobWorker(
+        store,
+        "worker-a",
+        {JobState.COLLECTING: execute},
+        lease_seconds=0.6,
+    )
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(worker.run_one)
+        assert stage_started.wait(timeout=5)
+        with psycopg.connect(postgres_dsn) as connection:
+            connection.execute(
+                """
+                UPDATE edition_jobs
+                SET lease_owner = 'worker-b',
+                    lease_expires_at = clock_timestamp() + INTERVAL '5 seconds'
+                WHERE job_id = %s
+                """,
+                (created.job_id,),
+            )
+        time.sleep(0.4)
+        release_stage.set()
+        with pytest.raises(LeaseConflict):
+            future.result(timeout=5)
+
+    durable = store.get_job(created.job_id)
+    assert durable.state is JobState.COLLECTING
+    assert durable.stage is JobState.COLLECTING
+    assert durable.lease_owner == "worker-b"
+    assert durable.failure_code is None
 
 
 def test_for_update_skip_locked_allows_two_workers_to_claim_different_jobs(
