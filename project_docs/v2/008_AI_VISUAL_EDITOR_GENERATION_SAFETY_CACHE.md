@@ -5,9 +5,9 @@
 **Lane:** CRITICAL — external AI image provider, server-side secret and
 editorial-safety boundary
 
-**Completion gate:** Implementation and deterministic fake-provider tests are
-present. Q08 remains `NEXT` until both required bounded live-image scenarios
-pass on the exact reviewed revision.
+**Completion gate:** `PASS`. Implementation, deterministic fake-provider tests
+and both required bounded live-image scenarios passed on reviewed revision
+`ead5f5d69eeb89785dcd82af2838ee933a5d4b88`. Q08 is `COMPLETE`; Q09 is `NEXT`.
 
 ## 1. Boundary
 
@@ -144,10 +144,21 @@ available call/token counts, estimated cost and bounded reasons. Image bytes,
 prompt, fact packet, provider response and credential remain memory-only and are
 not persisted.
 
-Until both scenarios pass, Q08 stays `NEXT`, Q09 stays `QUEUED` and the PR stays
-Draft. Organization verification, exact-model access, credential, moderation,
-budget or sensitive conceptual-QA failure is a STOP condition; model or safety
-policy is not weakened to obtain PASS.
+The gate passed with four logical provider calls and two memory-only images at
+an aggregate estimated cost of USD 0.093792. Both artifacts passed local WebP
+decode/hash/dimension validation at 1536x1024 and semantic QA with
+`gpt-5.6-terra`; the requested generation model was
+`gpt-image-2-2026-04-21`. The ordinary scenario produced an
+`editorial_illustrative` artifact (111,586 bytes; generation 315 input / 1,372
+output tokens; QA 2,239 input / 149 output tokens). The sensitive scenario
+produced an `editorial_conceptual` artifact (283,294 bytes; generation 335 input
+/ 1,372 output tokens; QA 2,253 input / 85 output tokens). Both reason-code sets
+were empty. Prompt, fact packet, image bytes, raw provider responses and
+credential were not persisted.
+
+The PR remains Draft for review. Organization verification, exact-model access,
+credential, moderation, budget or sensitive conceptual-QA failure remains a
+fail-closed condition; model or safety policy is not weakened to obtain PASS.
 
 ## 8. Explicit exclusions
 
