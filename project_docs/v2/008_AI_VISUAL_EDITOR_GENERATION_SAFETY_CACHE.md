@@ -5,9 +5,9 @@
 **Lane:** CRITICAL — external AI image provider, server-side secret and
 editorial-safety boundary
 
-**Completion gate:** `PENDING`. The corrected v2 conceptual generation↔QA
-contract has deterministic coverage but no authorized live-gate evidence yet.
-Q08 is `NEXT`; Q09 is `QUEUED`.
+**Completion gate:** `PASS`. The corrected v2 brief/QA and v3 generation-prompt
+contract passed its bounded live-image gate on exact production revision
+`0ca86a51bbfa328deed880a88da687930451de61`. Q08 is `COMPLETE`; Q09 is `NEXT`.
 
 ## 1. Boundary
 
@@ -179,6 +179,24 @@ evidence was four logical calls, two generation attempts and estimated cost USD
 0.093036. Requested models remained `gpt-image-2-2026-04-21` and
 `gpt-5.6-terra`. Prompt, fact packet, image bytes, raw provider responses and
 credential were not persisted.
+
+The one-time corrected-revision gate on
+`0ca86a51bbfa328deed880a88da687930451de61` fully passed. The ordinary scenario
+was `ready` / `editorial_illustrative` / `ordinary`: 1536x1024 WebP, 154,248
+bytes, asset
+`sha256:cf08e3b6c801541744109894492c81d93da8e3a5bf4ee2f42a8d5d84a0040a7d`,
+two calls, generation usage 345 input / 1,372 output tokens, QA usage 2,360 input
+/ 21 output tokens, and estimated cost USD 0.045972. The sensitive scenario was
+`ready` / `editorial_conceptual` / `sensitive_real_event`: 1536x1024 WebP,
+279,902 bytes, asset
+`sha256:b4588b1cfcd1c10c2646e211835b7d6430d3aad3e531ba4661b89ffdc63da98a`,
+two calls, generation usage 405 input / 1,372 output tokens, QA usage 2,423 input
+/ 71 output tokens, and estimated cost USD 0.046698. Both reason-code sets were
+empty. Aggregate evidence was four logical calls, two images and estimated cost
+USD 0.092670. Requested models were `gpt-image-2-2026-04-21` and
+`gpt-5.6-terra`. Local WebP decode, exact dimensions and SHA identity passed;
+prompt, fact packet, image bytes, raw provider responses, credential and private
+locators were not persisted.
 
 The PR remains Draft for review. Organization verification, exact-model access,
 credential, moderation, budget or sensitive conceptual-QA failure remains a
