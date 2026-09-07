@@ -114,7 +114,7 @@ JSON-ready canonical contract olarak tanımlanır ve fixture/regression testleri
 
 ### Q05 — On-demand edition job service
 
-**Durum:** `NEXT`
+**Durum:** `COMPLETE`
 
 `Gazetemi Hazırla` eylemi için bounded job lifecycle kurulur:
 
@@ -127,7 +127,7 @@ JSON-ready canonical contract olarak tanımlanır ve fixture/regression testleri
 
 ### Q06 — Live news ingestion + dedupe + ranking + attribution
 
-**Durum:** `QUEUED`
+**Durum:** `NEXT`
 
 Mevcut RSS kabiliyetleri V2 service contract'a taşınır veya dar uyarlamayla yeniden kullanılır.
 
