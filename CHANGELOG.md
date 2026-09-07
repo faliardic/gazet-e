@@ -2,6 +2,7 @@
 
 ## Unreleased — Mobile V2 bootstrap
 
+- `gazet-e.edition.v1` backend→mobile contract'ı technology-neutral JSON Schema, fail-closed Dart parser/serializer, production-shape fixture, external fixture asset resolver ve regression matrisiyle kanonikleştirildi.
 - Q03 Flutter reader proof; üç sayfalı bundled fixture, fixed newspaper canvas, pinch/pan, fit-scale navigation, explicit article/source hit regions, Okuma Modu ve deterministic golden ile offline olarak tamamlandı.
 - GitHub repository'si 7 Eylül 2026 owner kararıyla kalıcı olarak `faliardic/gazet-e` adına taşındı; `chatgpt_haber` namespace'i ve `chatgpt-haber` CLI uyumluluk adları değişmeden korundu.
 - v1.1 RSS, filtering, identity/dedupe, issue, render/layout, image, timing/cache, Windows ve GitHub Pages sınırları read-only source audit ile sınıflandırıldı.
