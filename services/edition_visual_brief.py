@@ -10,11 +10,11 @@ import unicodedata
 from services.edition_summary_models import SummaryArtifact, SummaryFactPacket
 from services.edition_visual_models import SafetyCategory, VisualBrief
 
-VISUAL_BRIEF_VERSION = "gazet-e.visual-brief.v1"
-GENERATION_PROMPT_VERSION = "gazet-e.image-prompt.v1"
+VISUAL_BRIEF_VERSION = "gazet-e.visual-brief.v2"
+GENERATION_PROMPT_VERSION = "gazet-e.image-prompt.v2"
 STYLE_VERSION = "gazet-e.editorial-visual.v1"
 SAFETY_VERSION = "gazet-e.visual-safety.v1"
-VISUAL_QA_VERSION = "gazet-e.visual-qa.v1"
+VISUAL_QA_VERSION = "gazet-e.visual-qa.v2"
 TARGET_WIDTH = 1536
 TARGET_HEIGHT = 1024
 MAX_PROMPT_CHARS = 6_000
@@ -147,9 +147,13 @@ def build_visual_brief(
     lead_headline = evidence[0].headline.strip()
     if representation_mode == "editorial_conceptual":
         composition = (
-            "Premium modern conceptual editorial illustration using symbols, "
-            "objects, atmosphere, and abstraction; no identifiable person or "
-            "claimed event scene; reserve generous clean negative space for layout."
+            "Premium modern conceptual editorial illustration using only "
+            "non-literal abstract geometry and forms, controlled light, material, "
+            "texture, and clearly conceptual symbolic treatment. Do not reconstruct "
+            "a scene. Do not depict identifiable people, an exact place, or "
+            "event-specific equipment, vehicles, damage, casualties, signage, or "
+            "other factual-looking details. Reserve generous clean negative space "
+            "for layout."
         )
         alt = (
             f"{lead_headline} konusu için belgesel iddiası taşımayan, yapay zekâ "
@@ -249,12 +253,15 @@ def image_cache_key(brief: VisualBrief, *, provider: str, model: str) -> str:
         {
             "background": "opaque",
             "brief_key": brief.visual_brief_key,
+            "brief_version": brief.brief_version,
             "height": brief.target_height,
             "model": model,
             "moderation": "auto",
             "output_compression": 90,
             "output_format": "webp",
+            "prompt_version": brief.prompt_version,
             "provider": provider,
+            "qa_version": VISUAL_QA_VERSION,
             "quality": "medium",
             "representation_mode": brief.representation_mode,
             "safety_class": brief.safety_class,

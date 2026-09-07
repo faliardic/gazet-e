@@ -38,6 +38,7 @@ from services.edition_visual_provider import (
     MAX_DECODED_BYTES,
     MAX_GENERATION_CONCURRENCY,
     PROVIDER_ID,
+    QA_INSTRUCTIONS,
     QA_MAX_OUTPUT_TOKENS,
     QA_MODEL,
     QA_TIMEOUT_SECONDS,
@@ -49,7 +50,12 @@ from services.edition_visual_provider import (
     ProviderCallError,
     QAProviderResponse,
 )
-from services.edition_visual_smoke import main as smoke_main
+from services.edition_visual_smoke import (
+    LIVE_MAX_CALLS,
+    LIVE_MAX_COST_USD,
+    LIVE_MAX_IMAGES,
+    main as smoke_main,
+)
 
 NOW = datetime(2026, 9, 7, 12, 0, tzinfo=timezone.utc)
 
@@ -116,6 +122,10 @@ def test_non_sensitive_story_is_editorial_illustrative() -> None:
     assert brief.safety_class == "ordinary"
     assert brief.safety_categories == ()
     assert brief.representation_mode == "editorial_illustrative"
+    assert brief.composition_intent == (
+        "Premium modern editorial illustration with a clear subject, refined "
+        "light and materials, and generous clean negative space for layout."
+    )
 
 
 def test_ordinary_oldu_does_not_collapse_into_death_injury() -> None:
@@ -147,6 +157,26 @@ def test_sensitive_categories_force_conceptual_mode(
     assert brief.safety_class == "sensitive_real_event"
     assert brief.representation_mode == "editorial_conceptual"
     assert "belgesel iddiası" in brief.alt_text
+
+
+def test_sensitive_brief_uses_narrow_non_factual_conceptual_grammar() -> None:
+    brief = build_visual_brief(_packet(headline="Yangında 5 kişi yaralandı"))
+    intent = brief.composition_intent
+    assert "non-literal abstract geometry and forms" in intent
+    assert "controlled light, material, texture" in intent
+    assert "clearly conceptual symbolic treatment" in intent
+    assert "Do not reconstruct a scene" in intent
+    for forbidden in (
+        "identifiable people",
+        "an exact place",
+        "event-specific equipment",
+        "vehicles",
+        "damage",
+        "casualties",
+        "signage",
+        "factual-looking details",
+    ):
+        assert forbidden in intent
 
 
 def test_named_real_person_flag_forces_non_identifying_conceptual_mode() -> None:
@@ -207,6 +237,35 @@ def test_brief_and_image_cache_keys_change_only_on_relevant_inputs() -> None:
     )
     assert key != image_cache_key(ordinary, provider=PROVIDER_ID, model="changed")
     assert key != image_cache_key(sensitive, provider=PROVIDER_ID, model=REQUESTED_IMAGE_MODEL)
+
+
+def test_corrected_contract_versions_invalidate_legacy_cache_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from services import edition_visual_brief
+
+    current_brief = edition_visual_brief.build_visual_brief(_packet())
+    current_key = edition_visual_brief.image_cache_key(
+        current_brief, provider=PROVIDER_ID, model=REQUESTED_IMAGE_MODEL
+    )
+    with monkeypatch.context() as patch:
+        patch.setattr(
+            edition_visual_brief, "VISUAL_BRIEF_VERSION", "gazet-e.visual-brief.v1"
+        )
+        patch.setattr(
+            edition_visual_brief,
+            "GENERATION_PROMPT_VERSION",
+            "gazet-e.image-prompt.v1",
+        )
+        patch.setattr(
+            edition_visual_brief, "VISUAL_QA_VERSION", "gazet-e.visual-qa.v1"
+        )
+        legacy_brief = edition_visual_brief.build_visual_brief(_packet())
+        legacy_key = edition_visual_brief.image_cache_key(
+            legacy_brief, provider=PROVIDER_ID, model=REQUESTED_IMAGE_MODEL
+        )
+    assert current_brief.visual_brief_key != legacy_brief.visual_brief_key
+    assert current_key != legacy_key
 
 
 def test_exact_cache_hit_precedes_all_paid_provider_calls() -> None:
@@ -363,12 +422,25 @@ def test_openai_generation_adapter_uses_exact_image_configuration() -> None:
     assert "api_key" not in request
 
 
+def test_sensitive_generation_receives_exact_bounded_conceptual_intent() -> None:
+    images = _CapturingImages()
+    adapter = OpenAIVisualProvider(
+        client=SimpleNamespace(images=images, responses=SimpleNamespace())
+    )
+    brief = build_visual_brief(_packet(headline="Yangında 5 kişi yaralandı"))
+    adapter.generate(brief)
+    prompt = images.calls[0]["prompt"]
+    assert isinstance(prompt, str)
+    assert brief.composition_intent in prompt
+
+
 def test_openai_qa_adapter_uses_exact_responses_configuration() -> None:
     responses = _CapturingResponses(_verdict("passed"))
     adapter = OpenAIVisualProvider(
         client=SimpleNamespace(images=SimpleNamespace(), responses=responses)
     )
-    result = adapter.verify(build_visual_brief(_packet()), _image_bytes())
+    brief = build_visual_brief(_packet(headline="Yangında 5 kişi yaralandı"))
+    result = adapter.verify(brief, _image_bytes())
     request = responses.calls[0]
     assert result.verdict.status == "passed"
     assert request["model"] == QA_MODEL
@@ -383,9 +455,31 @@ def test_openai_qa_adapter_uses_exact_responses_configuration() -> None:
     assert request["text"]["format"]["type"] == "json_schema"
     assert request["text"]["format"]["strict"] is True
     content = request["input"][0]["content"]
+    text_input = next(item for item in content if item["type"] == "input_text")
+    payload = json.loads(text_input["text"])
+    assert payload["composition_intent"] == brief.composition_intent
+    assert payload["qa_version"] == VISUAL_QA_VERSION
     image_input = next(item for item in content if item["type"] == "input_image")
     assert image_input["detail"] == "high"
     assert image_input["image_url"].startswith("data:image/webp;base64,")
+
+
+def test_qa_instructions_separate_allowed_abstraction_from_factual_reconstruction(
+) -> None:
+    assert (
+        "conceptual symbolic motifs explicitly allowed by composition_intent"
+        in QA_INSTRUCTIONS
+    )
+    assert (
+        "are not,\nby themselves, unsupported_visual_detail" in QA_INSTRUCTIONS
+    )
+    assert (
+        "exact factual-looking person, place, event scene, damage"
+        in QA_INSTRUCTIONS
+    )
+    assert "casualty, equipment, vehicle, signage" in QA_INSTRUCTIONS
+    assert "press/documentary" in QA_INSTRUCTIONS
+    assert "remain fail-closed" in QA_INSTRUCTIONS
 
 
 def test_openai_adapter_discards_raw_generation_exception_text() -> None:
@@ -453,7 +547,17 @@ def test_visual_modules_have_only_authorized_provider_call_sites() -> None:
     assert "images.edit" not in sources
     assert "publisher image" not in sources.casefold()
     assert MAX_GENERATION_CONCURRENCY == 2
-    assert VISUAL_QA_VERSION == "gazet-e.visual-qa.v1"
+    assert VISUAL_BRIEF_VERSION == "gazet-e.visual-brief.v2"
+    assert GENERATION_PROMPT_VERSION == "gazet-e.image-prompt.v2"
+    assert VISUAL_QA_VERSION == "gazet-e.visual-qa.v2"
+    assert REQUESTED_IMAGE_MODEL == "gpt-image-2-2026-04-21"
+    assert QA_MODEL == "gpt-5.6-terra"
+    assert ExecutionBudget() == ExecutionBudget(
+        max_calls=2, max_images=1, max_cost_usd=0.08
+    )
+    assert LIVE_MAX_CALLS == 4
+    assert LIVE_MAX_IMAGES == 2
+    assert LIVE_MAX_COST_USD == 0.15
 
 
 class _CapturingImages:

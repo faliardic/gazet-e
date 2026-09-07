@@ -5,10 +5,9 @@
 **Lane:** CRITICAL — external AI image provider, server-side secret and
 editorial-safety boundary
 
-**Completion gate:** `PENDING`. Implementation and deterministic fake-provider
-tests pass on production revision
-`21075735c5a8e765b398ea00fc68a93db75fd45c`, but its bounded live-image gate
-failed closed. Q08 is `NEXT`; Q09 is `QUEUED`.
+**Completion gate:** `PENDING`. The corrected v2 conceptual generation↔QA
+contract has deterministic coverage but no authorized live-gate evidence yet.
+Q08 is `NEXT`; Q09 is `QUEUED`.
 
 ## 1. Boundary
 
@@ -36,11 +35,11 @@ edition schema, mobile reader, Q09 layout or Q10 publication/storage wiring.
 
 Versions are fixed:
 
-- brief: `gazet-e.visual-brief.v1`
-- generation prompt: `gazet-e.image-prompt.v1`
+- brief: `gazet-e.visual-brief.v2`
+- generation prompt: `gazet-e.image-prompt.v2`
 - style: `gazet-e.editorial-visual.v1`
 - safety: `gazet-e.visual-safety.v1`
-- semantic QA: `gazet-e.visual-qa.v1`
+- semantic QA: `gazet-e.visual-qa.v2`
 
 The local brief preserves cluster, lead/evidence article and fact-fingerprint
 identity. Supported subject/context cues come only from the supplied bounded
@@ -51,10 +50,12 @@ call.
 Ordinary stories use `editorial_illustrative`. War/conflict, disaster, accident,
 crime/violence, political event and death/injury categories force
 `editorial_conceptual`. A caller-declared named-real-person story also forces a
-non-identifying conceptual representation. Sensitive briefs prohibit press or
-documentary framing and exact faces, people, clothing, location, damage,
-casualties, weapons, vehicles, weather, signage and other reconstructed event
-facts. If a bounded safe brief cannot be formed, generation does not run.
+non-identifying conceptual representation. Sensitive composition is restricted
+to non-literal abstract geometry/forms, controlled light/material/texture and
+clearly conceptual symbolic treatment. Sensitive briefs prohibit scene
+reconstruction and exact faces, people, clothing, place, damage, casualties,
+weapons, equipment, vehicles, weather, signage and other factual-looking event
+details. If a bounded safe brief cannot be formed, generation does not run.
 
 The runtime-private prompt is deterministic and at most 6,000 characters. It is
 never part of artifact/cache metadata, logs, diagnostics or PR evidence.
@@ -96,14 +97,20 @@ Semantic QA uses one OpenAI Responses request with `gpt-5.6-terra`, image detail
 service tier, background disabled, truncation disabled, 300 output-token limit,
 30-second timeout and one SDK transient retry maximum.
 
-The verifier receives only the in-memory image, bounded supported cues,
-representation/safety/style versions and forbidden-detail rules. Its output is
-only `passed|failed` with bounded reason codes: documentary risk, unsupported
-visual detail, identifiable real person, embedded text/logo, sensitive-mode
-violation, style mismatch or malformed image.
+The verifier receives only the in-memory image, bounded supported cues, the same
+bounded `composition_intent` supplied to generation,
+representation/safety/style versions and forbidden-detail rules. For
+`editorial_conceptual`, explicitly allowed non-factual abstract geometry/forms,
+light/material/texture and clearly conceptual symbolic motifs are not by
+themselves unsupported visual details. Exact factual-looking people, place,
+event scene, damage, casualty, equipment, vehicle, signage or other unsupported
+reconstruction still fails closed. Its output is only `passed|failed` with
+bounded reason codes: documentary risk, unsupported visual detail, identifiable
+real person, embedded text/logo, sensitive-mode violation, style mismatch or
+malformed image.
 
 QA failure returns `unavailable`, exposes no image bytes and is not cached.
-There is no automatic regeneration or repair in Q08 v1.
+There is no automatic regeneration or repair in the Q08 contract.
 
 ## 5. Artifact and cache contract
 
@@ -118,10 +125,12 @@ Raw prompt, credential, signed URL, repository/local path and private storage
 locator are not artifact fields. An unavailable result exposes no bytes.
 
 `visual_brief_key` hashes selected fact identity, locale and brief/safety policy.
-`image_cache_key` additionally hashes provider/model, style, safety/mode,
-dimensions, quality, format, compression, background and moderation. Exact image
-cache lookup occurs before any paid call. Only QA-passed ready results enter the
-success cache; a cache hit makes zero provider calls.
+`image_cache_key` additionally hashes the brief, generation-prompt and semantic
+QA versions plus provider/model, style, safety/mode, dimensions, quality, format,
+compression, background and moderation. The v2 contract therefore cannot reuse
+v1 success-cache entries. Exact image cache lookup occurs before any paid call.
+Only QA-passed ready results enter the success cache; a cache hit makes zero
+provider calls.
 
 ## 6. Cost and call bounds
 
