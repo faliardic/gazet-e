@@ -152,7 +152,7 @@ kurulur.
 
 ### Q08 — AI visual editor + generation + safety + cache
 
-**Durum:** `COMPLETE`
+**Durum:** `NEXT`
 
 Her story için pipeline:
 
@@ -170,7 +170,7 @@ Bitiş tanımı:
 
 ### Q09 — Newspaper layout engine V2
 
-**Durum:** `NEXT`
+**Durum:** `QUEUED`
 
 Ranked article set'i basılı gazete estetiğine dönüştüren versioned layout engine kurulur.
 

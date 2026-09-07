@@ -5,9 +5,10 @@
 **Lane:** CRITICAL — external AI image provider, server-side secret and
 editorial-safety boundary
 
-**Completion gate:** `PASS`. Implementation, deterministic fake-provider tests
-and both required bounded live-image scenarios passed on reviewed revision
-`ead5f5d69eeb89785dcd82af2838ee933a5d4b88`. Q08 is `COMPLETE`; Q09 is `NEXT`.
+**Completion gate:** `PENDING`. Implementation and deterministic fake-provider
+tests pass on production revision
+`21075735c5a8e765b398ea00fc68a93db75fd45c`, but its bounded live-image gate
+failed closed. Q08 is `NEXT`; Q09 is `QUEUED`.
 
 ## 1. Boundary
 
@@ -144,17 +145,18 @@ available call/token counts, estimated cost and bounded reasons. Image bytes,
 prompt, fact packet, provider response and credential remain memory-only and are
 not persisted.
 
-The gate passed with four logical provider calls and two memory-only images at
-an aggregate estimated cost of USD 0.093792. Both artifacts passed local WebP
-decode/hash/dimension validation at 1536x1024 and semantic QA with
-`gpt-5.6-terra`; the requested generation model was
-`gpt-image-2-2026-04-21`. The ordinary scenario produced an
-`editorial_illustrative` artifact (111,586 bytes; generation 315 input / 1,372
-output tokens; QA 2,239 input / 149 output tokens). The sensitive scenario
-produced an `editorial_conceptual` artifact (283,294 bytes; generation 335 input
-/ 1,372 output tokens; QA 2,253 input / 85 output tokens). Both reason-code sets
-were empty. Prompt, fact packet, image bytes, raw provider responses and
-credential were not persisted.
+The earlier gate passed on revision
+`ead5f5d69eeb89785dcd82af2838ee933a5d4b88`, before the sensitive-event
+classification boundary changed, and is not closure authority for the current
+production revision. The single authorized gate on
+`21075735c5a8e765b398ea00fc68a93db75fd45c` stopped after the ordinary scenario
+failed semantic QA with `unsupported_visual_detail`; the pipeline returned
+`unavailable` and exposed no image bytes. Safe evidence: two logical calls, one
+generation attempt, generation usage 315 input / 1,372 output tokens, QA usage
+2,239 input / 25 output tokens, and estimated cost USD 0.045778. The requested
+models remained `gpt-image-2-2026-04-21` and `gpt-5.6-terra`. The sensitive
+scenario was not run. Prompt, fact packet, image bytes, raw provider responses
+and credential were not persisted.
 
 The PR remains Draft for review. Organization verification, exact-model access,
 credential, moderation, budget or sensitive conceptual-QA failure remains a
