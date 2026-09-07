@@ -2,6 +2,7 @@
 
 ## Unreleased — Mobile V2 bootstrap
 
+- Q07 source-grounded OpenAI editorial-summary pipeline; bounded Q06 fact packet, strict structured generation/verifier contracts, local validation, exact-key cache, one-repair ceiling ve safe unavailable fallback ile eklendi. Live-provider gate credential beklediği için Q07 henüz COMPLETE değildir.
 - Q06 live-news katmanı; dört publisher family için bounded static-HTTPS RSS adapter'ı, stable article/content identity, structured quality reasons, exact dedupe, conservative cross-source clustering ve versioned deterministic ranking ile tamamlandı.
 - Q05 on-demand edition job service; FastAPI API, direct psycopg PostgreSQL persistence, idempotency, lease/heartbeat/checkpoint recovery, bounded retry, safe cancellation, injected worker stages ve immutable validated edition publication ile tamamlandı.
 - `gazet-e.edition.v1` backend→mobile contract'ı technology-neutral JSON Schema, fail-closed Dart parser/serializer, production-shape fixture, external fixture asset resolver ve regression matrisiyle kanonikleştirildi.
