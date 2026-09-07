@@ -4,8 +4,9 @@
 
 **Lane:** CRITICAL — external AI provider and server-side secret boundary
 
-**Completion gate:** Implementation and deterministic fake-provider tests are
-present. Q07 remains `NEXT` until the required bounded live OpenAI smoke passes.
+**Completion gate:** PASS. Implementation, deterministic fake-provider tests
+and the required bounded live OpenAI smoke are complete. Q07 is `COMPLETE` and
+Q08 is `NEXT`.
 
 ## 1. Boundary
 
@@ -142,9 +143,16 @@ two calls, 4,000 input tokens, 900 output tokens and USD 0.03 maximum. Output is
 limited to status, model, call-count, aggregate token and estimated-cost
 metadata.
 
-If `OPENAI_API_KEY` is absent, the command reports a bounded PENDING status and
-makes no provider call. Q07 must remain `NEXT`, Q08 must remain `QUEUED`, and the
-Draft PR must not be marked complete until a real smoke passes.
+The accepted live gate passed with `gpt-5.6-terra` for both generation and
+verification: `status=ready`, `verification_status=passed`, no reason codes,
+2 calls, 1,076 aggregate input tokens, 194 aggregate output tokens and an
+estimated cost of USD 0.00448. No prompt, fact packet, raw provider response or
+credential is retained as completion evidence.
+
+An earlier bounded live run returned a verifier failure and the pipeline
+correctly produced a fail-closed `unavailable` artifact. That run remains live
+evidence of safe failure behavior; the later accepted PASS closes the provider
+gate without changing the model, prompts, verifier policy or repair boundary.
 
 ## 9. Explicit exclusions
 

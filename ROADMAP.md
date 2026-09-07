@@ -139,7 +139,7 @@ Mevcut RSS kabiliyetleri V2 service contract'a taşınır veya dar uyarlamayla y
 
 ### Q07 — AI editorial summary pipeline
 
-**Durum:** `NEXT`
+**Durum:** `COMPLETE`
 
 - haber gerçeğine sadık kısa Gazet+E özeti;
 - unsupported detail/hallucination kontrolü;
@@ -152,7 +152,7 @@ kurulur.
 
 ### Q08 — AI visual editor + generation + safety + cache
 
-**Durum:** `QUEUED`
+**Durum:** `NEXT`
 
 Her story için pipeline:
 
