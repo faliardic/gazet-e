@@ -127,7 +127,7 @@ JSON-ready canonical contract olarak tanımlanır ve fixture/regression testleri
 
 ### Q06 — Live news ingestion + dedupe + ranking + attribution
 
-**Durum:** `NEXT`
+**Durum:** `COMPLETE`
 
 Mevcut RSS kabiliyetleri V2 service contract'a taşınır veya dar uyarlamayla yeniden kullanılır.
 
@@ -139,7 +139,7 @@ Mevcut RSS kabiliyetleri V2 service contract'a taşınır veya dar uyarlamayla y
 
 ### Q07 — AI editorial summary pipeline
 
-**Durum:** `QUEUED`
+**Durum:** `NEXT`
 
 - haber gerçeğine sadık kısa Gazet+E özeti;
 - unsupported detail/hallucination kontrolü;
