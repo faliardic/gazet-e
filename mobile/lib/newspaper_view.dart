@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'edition.dart';
+import 'edition_asset_image.dart';
 import 'edition_session.dart';
 import 'source_launcher.dart';
 
@@ -322,7 +323,13 @@ class NewspaperCanvas extends StatelessWidget {
           clipBehavior: Clip.hardEdge,
           children: [
             const Positioned.fill(child: _PaperTexture()),
-            _Masthead(page: page, edition: edition.edition),
+            _Masthead(
+              page: page,
+              edition: edition.edition,
+              hasVerifiedRemoteAssets: edition.articles.values.any(
+                (article) => article.visual.assetBytes != null,
+              ),
+            ),
             for (final placement in page.placements)
               Positioned.fromRect(
                 rect: placement.rect.rect,
@@ -392,10 +399,15 @@ class _PaperTexturePainter extends CustomPainter {
 }
 
 class _Masthead extends StatelessWidget {
-  const _Masthead({required this.page, required this.edition});
+  const _Masthead({
+    required this.page,
+    required this.edition,
+    required this.hasVerifiedRemoteAssets,
+  });
 
   final NewspaperPage page;
   final EditionMetadata edition;
+  final bool hasVerifiedRemoteAssets;
 
   @override
   Widget build(BuildContext context) {
@@ -461,9 +473,14 @@ class _Masthead extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              const Text(
-                'KAVRAMSAL GÖRSELLER • OFFLINE FIXTURE',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+              Text(
+                hasVerifiedRemoteAssets
+                    ? 'DOĞRULANMIŞ AI EDİTORYAL GÖRSELLER'
+                    : 'KAVRAMSAL GÖRSELLER • OFFLINE FIXTURE',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ],
           ),
@@ -500,8 +517,8 @@ class _StoryBlock extends StatelessWidget {
                 flex: isHero ? 6 : 5,
                 child: ClipRect(
                   child: SizedBox.expand(
-                    child: Image.asset(
-                      article.visual.assetPath,
+                    child: EditionAssetImage(
+                      visual: article.visual,
                       fit: BoxFit.cover,
                       excludeFromSemantics: true,
                     ),

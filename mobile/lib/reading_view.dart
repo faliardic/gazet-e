@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'edition.dart';
+import 'edition_asset_image.dart';
 import 'newspaper_view.dart';
 import 'source_launcher.dart';
 
@@ -74,8 +75,8 @@ class ReadingView extends StatelessWidget {
                       label: article.visual.alt,
                       child: AspectRatio(
                         aspectRatio: 3 / 2,
-                        child: Image.asset(
-                          article.visual.assetPath,
+                        child: EditionAssetImage(
+                          visual: article.visual,
                           fit: BoxFit.cover,
                           excludeFromSemantics: true,
                         ),

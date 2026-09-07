@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'dart:ui';
 
 const supportedContractVersion = 'gazet-e.edition.v1';
 
 typedef EditionAssetPathResolver = String? Function(String assetId);
+typedef EditionAssetBytesResolver = Uint8List? Function(String assetId);
 
 final class EditionDocument {
   EditionDocument({
@@ -25,6 +27,7 @@ final class EditionDocument {
   static EditionDocument parse(
     String source, {
     EditionAssetPathResolver? assetResolver,
+    EditionAssetBytesResolver? assetBytesResolver,
   }) {
     final Object? decoded;
     try {
@@ -37,12 +40,14 @@ final class EditionDocument {
     return EditionDocument.fromJson(
       _map(decoded, r'$'),
       assetResolver: assetResolver,
+      assetBytesResolver: assetBytesResolver,
     );
   }
 
   factory EditionDocument.fromJson(
     Map<String, Object?> json, {
     EditionAssetPathResolver? assetResolver,
+    EditionAssetBytesResolver? assetBytesResolver,
   }) {
     _rejectForbiddenFields(json, r'$');
     _expectKeys(json, r'$', {
@@ -79,6 +84,7 @@ final class EditionDocument {
         _map(articleList[index], 'articles[$index]'),
         'articles[$index]',
         assetResolver: assetResolver,
+        assetBytesResolver: assetBytesResolver,
       );
       if (articles.containsKey(article.id)) {
         throw FormatException('Duplicate article id "${article.id}".');
@@ -633,6 +639,7 @@ final class Article {
     Map<String, Object?> json,
     String path, {
     EditionAssetPathResolver? assetResolver,
+    EditionAssetBytesResolver? assetBytesResolver,
   }) {
     _expectKeys(json, path, {
       'id',
@@ -716,6 +723,7 @@ final class Article {
         _map(json['visual'], '$path.visual'),
         '$path.visual',
         assetResolver: assetResolver,
+        assetBytesResolver: assetBytesResolver,
       ),
       cache: ArticleCache.fromJson(
         _map(json['cache'], '$path.cache'),
@@ -822,6 +830,7 @@ final class EditorialVisual {
     required this.transparencyLabel,
     required this.provenance,
     required this._resolvedAssetPath,
+    required this._resolvedAssetBytes,
   });
 
   final String assetId;
@@ -832,9 +841,11 @@ final class EditorialVisual {
   final String transparencyLabel;
   final VisualProvenance provenance;
   final String? _resolvedAssetPath;
+  final Uint8List? _resolvedAssetBytes;
 
   bool get generatedByAi => provenance.generatedByAi;
   String get safetyClass => provenance.safetyClass;
+  Uint8List? get assetBytes => _resolvedAssetBytes;
 
   String get assetPath {
     final value = _resolvedAssetPath;
@@ -850,6 +861,7 @@ final class EditorialVisual {
     Map<String, Object?> json,
     String path, {
     EditionAssetPathResolver? assetResolver,
+    EditionAssetBytesResolver? assetBytesResolver,
   }) {
     _expectKeys(json, path, {
       'asset_id',
@@ -876,6 +888,7 @@ final class EditorialVisual {
         '$path.provenance',
       ),
       resolvedAssetPath: assetResolver?.call(assetId),
+      resolvedAssetBytes: assetBytesResolver?.call(assetId),
     );
   }
 

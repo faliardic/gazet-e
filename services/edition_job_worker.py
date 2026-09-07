@@ -11,6 +11,7 @@ from services.edition_job_models import NEXT_STATE, JobState
 from services.edition_job_store import (
     EditionImmutableConflict,
     EditionJobStore,
+    IntegrationConflict,
     JobRecord,
     LeaseConflict,
 )
@@ -18,10 +19,13 @@ from services.edition_job_validation import (
     CanonicalEditionError,
     CanonicalEditionValidator,
 )
+from services.edition_integration_models import IntegrationStageResult
 
 
 class StageExecutor(Protocol):
-    def __call__(self, job: JobRecord) -> dict[str, Any] | None: ...
+    def __call__(
+        self, job: JobRecord
+    ) -> dict[str, Any] | IntegrationStageResult | None: ...
 
 
 @dataclass(frozen=True)
@@ -101,7 +105,9 @@ class EditionJobWorker:
         self._validator = validator or CanonicalEditionValidator()
         self._lease_seconds = lease_seconds
 
-    def run_one(self) -> JobRecord | None:
+    def run_one(self, *, max_stages: int | None = None) -> JobRecord | None:
+        if max_stages is not None and max_stages < 1:
+            raise ValueError("max_stages must be positive")
         job = self._store.claim_job(
             self._worker_id,
             lease_seconds=self._lease_seconds,
@@ -113,6 +119,7 @@ class EditionJobWorker:
         ):
             return job
 
+        completed_stages = 0
         while job.state not in (
             JobState.READY,
             JobState.FAILED,
@@ -169,8 +176,14 @@ class EditionJobWorker:
                     diagnostic="Stage execution failed safely.",
                 )
 
+            stage_result = output if isinstance(output, IntegrationStageResult) else None
+            document = (
+                stage_result.edition_document
+                if stage_result is not None
+                else output
+            )
             if job.state is JobState.LAYING_OUT:
-                if not isinstance(output, dict):
+                if not isinstance(document, dict):
                     return self._store.fail_job(
                         job.job_id,
                         self._worker_id,
@@ -182,10 +195,25 @@ class EditionJobWorker:
                     return self._store.publish_ready_edition(
                         job.job_id,
                         self._worker_id,
-                        output,
+                        document,
                         self._validator,
+                        manifest_version=(
+                            stage_result.manifest_version
+                            if stage_result is not None
+                            else None
+                        ),
+                        manifest=(
+                            stage_result.manifest
+                            if stage_result is not None
+                            else None
+                        ),
                     )
-                except (CanonicalEditionError, EditionImmutableConflict):
+                except (
+                    CanonicalEditionError,
+                    EditionImmutableConflict,
+                    IntegrationConflict,
+                    ValueError,
+                ):
                     return self._store.fail_job(
                         job.job_id,
                         self._worker_id,
@@ -194,11 +222,31 @@ class EditionJobWorker:
                         diagnostic="Edition document failed canonical validation.",
                     )
 
-            job = self._store.checkpoint_and_advance(
-                job.job_id,
-                self._worker_id,
-                NEXT_STATE[job.state],
-                lease_seconds=self._lease_seconds,
-            )
+            try:
+                job = self._store.checkpoint_and_advance(
+                    job.job_id,
+                    self._worker_id,
+                    NEXT_STATE[job.state],
+                    lease_seconds=self._lease_seconds,
+                    manifest_version=(
+                        stage_result.manifest_version
+                        if stage_result is not None
+                        else None
+                    ),
+                    manifest=(
+                        stage_result.manifest if stage_result is not None else None
+                    ),
+                )
+            except (IntegrationConflict, ValueError):
+                return self._store.fail_job(
+                    job.job_id,
+                    self._worker_id,
+                    code="stage_persistence_error",
+                    retryable=False,
+                    diagnostic="Stage checkpoint failed safely.",
+                )
+            completed_stages += 1
+            if max_stages is not None and completed_stages >= max_stages:
+                return job
 
         return job

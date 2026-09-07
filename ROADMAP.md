@@ -183,7 +183,7 @@ Ranked article set'i basılı gazete estetiğine dönüştüren versioned layout
 
 ### Q10 — End-to-end one-tap edition integration
 
-**Durum:** `NEXT`
+**Durum:** `ACTIVE`
 
 `Gazetemi Hazırla` → live news → selection → AI summary → AI image → layout → interactive mobile edition zinciri tamamlanır.
 

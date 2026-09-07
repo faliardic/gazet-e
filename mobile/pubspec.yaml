@@ -1,5 +1,5 @@
 name: readerproof
-description: "Gazet+E offline static interactive newspaper reader proof."
+description: "Gazet+E one-tap local integration and interactive reader proof."
 publish_to: "none"
 version: 0.1.0+1
 
@@ -7,6 +7,7 @@ environment:
   sdk: ^3.12.2
 
 dependencies:
+  crypto: 3.0.7
   flutter:
     sdk: flutter
   url_launcher: ^6.3.2
