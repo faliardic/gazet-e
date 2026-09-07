@@ -118,6 +118,13 @@ def test_non_sensitive_story_is_editorial_illustrative() -> None:
     assert brief.representation_mode == "editorial_illustrative"
 
 
+def test_ordinary_oldu_does_not_collapse_into_death_injury() -> None:
+    brief = build_visual_brief(_packet(headline="Etkinlik başarılı oldu"))
+    assert "death_injury" not in brief.safety_categories
+    assert brief.safety_class == "ordinary"
+    assert brief.representation_mode == "editorial_illustrative"
+
+
 @pytest.mark.parametrize(
     ("headline", "category"),
     [
@@ -127,6 +134,9 @@ def test_non_sensitive_story_is_editorial_illustrative() -> None:
         ("Şiddet saldırısı soruşturuluyor", "crime_violence"),
         ("Seçim mitingi düzenlendi", "political_event"),
         ("Olayda yaralı olduğu bildirildi", "death_injury"),
+        ("Yangında 5 kişi yaralandı", "death_injury"),
+        ("Üç yolcu hayatını kaybetti", "death_injury"),
+        ("İki kişi öldü", "death_injury"),
     ],
 )
 def test_sensitive_categories_force_conceptual_mode(

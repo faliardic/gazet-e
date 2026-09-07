@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import unicodedata
 
 from services.edition_summary_models import SummaryArtifact, SummaryFactPacket
@@ -18,59 +19,72 @@ TARGET_WIDTH = 1536
 TARGET_HEIGHT = 1024
 MAX_PROMPT_CHARS = 6_000
 
-_SENSITIVE_TERMS: dict[SafetyCategory, tuple[str, ...]] = {
+_FOLDED_SENSITIVE_PATTERNS: dict[SafetyCategory, tuple[str, ...]] = {
     "war_conflict": (
-        "savas",
-        "silahli catisma",
-        "catisma",
-        "fuze",
-        "askeri saldiri",
-        "war",
-        "armed conflict",
+        r"\bsavas\w*\b",
+        r"\bsilahli\s+catisma\w*\b",
+        r"\bcatisma\w*\b",
+        r"\bfuze\w*\b",
+        r"\baskeri\s+saldiri\w*\b",
+        r"\bwar\b",
+        r"\barmed\s+conflict\b",
     ),
     "disaster": (
-        "deprem",
-        "sel felaketi",
-        "afet",
-        "heyelan",
-        "orman yangini",
-        "earthquake",
-        "flood",
-        "wildfire",
-        "disaster",
+        r"\bdeprem\w*\b",
+        r"\bsel\s+felaket\w*\b",
+        r"\bafet\w*\b",
+        r"\bheyelan\w*\b",
+        r"\b(?:orman\s+)?yangin\w*\b",
+        r"\bearthquake\w*\b",
+        r"\bflood\w*\b",
+        r"\bwildfire\w*\b",
+        r"\bdisaster\w*\b",
     ),
-    "accident": ("kaza", "carpisma", "accident", "crash", "collision"),
+    "accident": (
+        r"\bkaza\w*\b",
+        r"\bcarpisma\w*\b",
+        r"\baccident\w*\b",
+        r"\bcrash\w*\b",
+        r"\bcollision\w*\b",
+    ),
     "crime_violence": (
-        "cinayet",
-        "saldiri",
-        "siddet",
-        "silahli",
-        "crime",
-        "violence",
-        "attack",
-        "shooting",
-        "murder",
+        r"\bcinayet\w*\b",
+        r"\bsaldiri\w*\b",
+        r"\bsiddet\w*\b",
+        r"\bsilahli\w*\b",
+        r"\bcrime\w*\b",
+        r"\bviolence\w*\b",
+        r"\battack\w*\b",
+        r"\bshooting\w*\b",
+        r"\bmurder\w*\b",
     ),
     "political_event": (
-        "secim",
-        "miting",
-        "siyasi toplanti",
-        "oylama",
-        "election",
-        "political rally",
-        "political meeting",
-    ),
-    "death_injury": (
-        "hayatini kaybetti",
-        "olum",
-        "oldu",
-        "yarali",
-        "death",
-        "killed",
-        "injured",
+        r"\bsecim\w*\b",
+        r"\bmiting\w*\b",
+        r"\bsiyasi\s+toplanti\w*\b",
+        r"\boylama\w*\b",
+        r"\belection\w*\b",
+        r"\bpolitical\s+rally\w*\b",
+        r"\bpolitical\s+meeting\w*\b",
     ),
     "named_real_person": (),
 }
+
+_DEATH_INJURY_PATTERNS = (
+    r"\byaralı\w*\b",
+    r"\byaralan\w*\b",
+    r"\bhayatını\s+kayb(?:et|ed)\w*\b",
+    r"\byaşamını\s+yitir\w*\b",
+    r"\bcan\s+kaybı\w*\b",
+    r"\böldü\w*\b",
+    r"\bölen\w*\b",
+    r"\böldürül\w*\b",
+    r"\bölüm(?:ler|ü|ün|den|e|le)?\b",
+    r"\bölü(?:ler|nün|ye|den)?\b",
+    r"\bdeath\w*\b",
+    r"\bkilled\w*\b",
+    r"\binjured\w*\b",
+)
 
 _FORBIDDEN_DETAILS = (
     "press or documentary photograph framing",
@@ -269,18 +283,30 @@ def _validate_summary_identity(
 
 
 def _classify_sensitive_categories(text: str) -> tuple[SafetyCategory, ...]:
-    normalized = _normalize(text)
-    return tuple(
+    lexical = _normalize_turkish(text)
+    folded = _fold_diacritics(lexical)
+    categories = [
         category
-        for category, terms in _SENSITIVE_TERMS.items()
-        if terms and any(term in normalized for term in terms)
-    )
+        for category, patterns in _FOLDED_SENSITIVE_PATTERNS.items()
+        if patterns and any(re.search(pattern, folded) for pattern in patterns)
+    ]
+    if any(re.search(pattern, lexical) for pattern in _DEATH_INJURY_PATTERNS):
+        categories.append("death_injury")
+    return tuple(categories)
 
 
-def _normalize(value: str) -> str:
-    decomposed = unicodedata.normalize("NFKD", value.casefold())
+def _normalize_turkish(value: str) -> str:
+    lowered = value.translate(str.maketrans({"I": "ı", "İ": "i"})).lower()
+    normalized = unicodedata.normalize("NFC", lowered)
+    return " ".join(re.sub(r"[^\w]+", " ", normalized).split())
+
+
+def _fold_diacritics(value: str) -> str:
+    decomposed = unicodedata.normalize("NFKD", value)
     return " ".join(
-        "".join(char for char in decomposed if not unicodedata.combining(char)).split()
+        "".join(char for char in decomposed if not unicodedata.combining(char))
+        .translate(str.maketrans({"ı": "i"}))
+        .split()
     )
 
 
