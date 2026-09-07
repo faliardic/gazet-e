@@ -11,6 +11,7 @@ from pydantic import ValidationError
 from services.edition_news_fetch import (
     CONNECT_TIMEOUT_SECONDS,
     MAX_FETCH_ATTEMPTS,
+    MAX_REDIRECTS,
     READ_TIMEOUT_SECONDS,
     EditionNewsCollector,
 )
@@ -32,6 +33,7 @@ from services.edition_news_registry import RSS_REGISTRY
 NOW = datetime(2026, 9, 7, 9, 0, tzinfo=timezone.utc)
 SOURCE_A = RSS_REGISTRY[0]
 SOURCE_B = RSS_REGISTRY[5]
+SOURCE_C = RSS_REGISTRY[10]
 
 
 class FakeResponse:
@@ -41,12 +43,12 @@ class FakeResponse:
         *,
         status_code: int = 200,
         url: str = "https://feeds.example.test/news.xml",
-        history: tuple[object, ...] = (),
+        headers: dict[str, str] | None = None,
     ) -> None:
         self.payload = payload
         self.status_code = status_code
         self.url = url
-        self.history = history
+        self.headers = headers or {}
         self.closed = False
 
     def iter_content(self, chunk_size: int):
@@ -165,6 +167,7 @@ def test_bounded_fetch_uses_timeout_user_agent_and_retry() -> None:
         READ_TIMEOUT_SECONDS,
     )
     assert session.calls[0][1]["stream"] is True
+    assert session.calls[0][1]["allow_redirects"] is False
     assert session.calls[0][1]["headers"]["User-Agent"].startswith("Gazet+E/")
     assert sleeps == [0.2]
     assert response.closed is True
@@ -191,8 +194,15 @@ def test_feed_failure_is_structured_without_erasing_successful_feed() -> None:
 
 
 def test_non_https_redirect_chain_fails_closed() -> None:
-    redirect = type("Redirect", (), {"url": "http://unsafe.example.test/feed"})()
-    session = FakeSession([FakeResponse(_rss(), history=(redirect,))])
+    session = FakeSession(
+        [
+            FakeResponse(
+                b"",
+                status_code=302,
+                headers={"Location": "http://unsafe.example.test/feed"},
+            )
+        ]
+    )
     result = EditionNewsCollector(
         registry=(SOURCE_A,),
         session=session,
@@ -201,6 +211,69 @@ def test_non_https_redirect_chain_fails_closed() -> None:
     assert result.fetch_results[0].success is False
     assert result.fetch_results[0].status == "unsafe_redirect"
     assert result.candidates == ()
+    assert [call[0] for call in session.calls] == [SOURCE_A.feed_url]
+
+
+def test_absolute_https_redirect_is_preflighted_then_parsed_from_bytes() -> None:
+    target = "https://feeds.example.test/redirected.xml"
+    session = FakeSession(
+        [
+            FakeResponse(b"", status_code=301, headers={"Location": target}),
+            FakeResponse(_rss()),
+        ]
+    )
+    result = EditionNewsCollector(
+        registry=(SOURCE_A,),
+        session=session,
+        clock=lambda: NOW,
+    ).collect()
+    assert [call[0] for call in session.calls] == [SOURCE_A.feed_url, target]
+    assert result.fetch_results[0].success is True
+    assert result.fetch_results[0].item_count == 1
+    assert result.candidates[0].headline.startswith("Merkez Bankası")
+
+
+def test_relative_https_redirect_is_resolved_before_request() -> None:
+    session = FakeSession(
+        [
+            FakeResponse(
+                b"",
+                status_code=302,
+                headers={"Location": "/feeds/redirected.xml"},
+            ),
+            FakeResponse(_rss()),
+        ]
+    )
+    result = EditionNewsCollector(
+        registry=(SOURCE_A,),
+        session=session,
+        clock=lambda: NOW,
+    ).collect()
+    assert [call[0] for call in session.calls] == [
+        SOURCE_A.feed_url,
+        "https://www.ntv.com.tr/feeds/redirected.xml",
+    ]
+    assert result.fetch_results[0].success is True
+
+
+def test_redirect_limit_exhaustion_is_structured_and_bounded() -> None:
+    redirects = [
+        FakeResponse(
+            b"",
+            status_code=302,
+            headers={"Location": f"/redirect-{index}.xml"},
+        )
+        for index in range(MAX_REDIRECTS + 1)
+    ]
+    session = FakeSession(redirects)
+    result = EditionNewsCollector(
+        registry=(SOURCE_A,),
+        session=session,
+        clock=lambda: NOW,
+    ).collect()
+    assert result.fetch_results[0].success is False
+    assert result.fetch_results[0].status == "redirect_limit_exceeded"
+    assert len(session.calls) == MAX_REDIRECTS + 1
 
 
 def test_rss_entry_normalization_has_complete_source_attribution() -> None:
@@ -291,6 +364,38 @@ def test_generic_similar_unrelated_titles_do_not_overcluster() -> None:
     )
     ranked = build_ranked_collection(_collection(left, right), now=NOW)
     assert len(ranked.clusters) == 2
+
+
+def test_bridge_similarity_does_not_transitively_join_unrelated_endpoints() -> None:
+    article_a = _candidate(
+        SOURCE_A,
+        title="Merkez bankası faiz kararı eylül toplantısı",
+        url="https://a.example.test/story",
+    )
+    article_b = _candidate(
+        SOURCE_B,
+        title="Merkez bankası faiz kararı enflasyon piyasası",
+        url="https://b.example.test/story",
+    )
+    article_c = _candidate(
+        SOURCE_C,
+        title="Faiz kararı enflasyon piyasası yatırım görünümü",
+        url="https://c.example.test/story",
+    )
+    ranked = build_ranked_collection(
+        _collection(article_a, article_b, article_c),
+        now=NOW,
+    )
+    assert sorted(len(cluster.member_article_ids) for cluster in ranked.clusters) == [
+        1,
+        2,
+    ]
+    assert all(
+        not {article_a.article_id, article_c.article_id}.issubset(
+            cluster.member_article_ids
+        )
+        for cluster in ranked.clusters
+    )
 
 
 def test_cluster_identity_member_and_lead_order_is_deterministic() -> None:

@@ -117,30 +117,22 @@ def cluster_articles(
     articles: tuple[ArticleCandidate, ...] | list[ArticleCandidate],
 ) -> tuple[RankedCluster, ...]:
     ordered = tuple(sorted(articles, key=lambda article: article.article_id))
-    parents = list(range(len(ordered)))
+    groups: list[list[ArticleCandidate]] = []
+    for article in ordered:
+        matching_group = next(
+            (
+                group
+                for group in groups
+                if all(_same_story_signal(article, member) for member in group)
+            ),
+            None,
+        )
+        if matching_group is None:
+            groups.append([article])
+        else:
+            matching_group.append(article)
 
-    def find(index: int) -> int:
-        while parents[index] != index:
-            parents[index] = parents[parents[index]]
-            index = parents[index]
-        return index
-
-    def union(left: int, right: int) -> None:
-        left_root = find(left)
-        right_root = find(right)
-        if left_root != right_root:
-            parents[max(left_root, right_root)] = min(left_root, right_root)
-
-    for left in range(len(ordered)):
-        for right in range(left + 1, len(ordered)):
-            if _same_story_signal(ordered[left], ordered[right]):
-                union(left, right)
-
-    groups: dict[int, list[ArticleCandidate]] = {}
-    for index, article in enumerate(ordered):
-        groups.setdefault(find(index), []).append(article)
-
-    clusters = tuple(_make_cluster(group) for group in groups.values())
+    clusters = tuple(_make_cluster(group) for group in groups)
     return tuple(sorted(clusters, key=lambda cluster: (-cluster.score, cluster.cluster_id)))
 
 

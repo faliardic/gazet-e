@@ -40,8 +40,9 @@ Production collector:
 - connect/read timeout'u sırasıyla 3/7 saniyeyle sınırlar;
 - transient network, 429 ve 5xx için en fazla iki attempt ve bounded backoff
   uygular;
-- redirect sayısını beşle sınırlar ve bütün redirect/final URL'lerde HTTPS
-  ister;
+- automatic redirect'i kapatır; her `Location` değerini current HTTPS URL'ye
+  göre resolve edip sonraki network çağrısından önce HTTPS/user-info kontrolü
+  yapar ve redirect sayısını beşle sınırlar;
 - response'u streaming olarak en fazla 2 MiB okur;
 - feed başına en fazla 30 item normalize eder;
 - `feedparser.parse()` fonksiyonuna URL değil fetched bytes verir;
@@ -113,10 +114,13 @@ article'ları şu conservative sinyallerle aynı story cluster'a alınabilir:
 - stop-word çıkarılmış headline token'larında en az üç meaningful ortak token;
 - minimum 0.60 containment ve 0.40 Jaccard similarity.
 
-Generic title'lar minimum meaningful-token şartını geçmeden birleşmez. Article
-identity'ler cluster içinde ayrı kalır. Cluster ID, policy version + sıralı
-member article ID'lerinin SHA-256 değeridir. Member/cluster sırası ve lead
-seçimi score, publication time ve article-ID tie-break'leriyle deterministiktir.
+Generic title'lar minimum meaningful-token şartını geçmeden birleşmez. Yeni
+candidate mevcut cluster'a yalnız her mevcut member ile aynı conservative
+predicate'i sağlarsa alınır; tek bridge headline transitive biçimde ilgisiz iki
+endpoint'i birleştiremez. Article identity'ler cluster içinde ayrı kalır.
+Cluster ID, policy version + sıralı member article ID'lerinin SHA-256 değeridir.
+Member/cluster sırası ve lead seçimi score, publication time ve article-ID
+tie-break'leriyle deterministiktir.
 
 ## 8. Deterministic ranking
 
