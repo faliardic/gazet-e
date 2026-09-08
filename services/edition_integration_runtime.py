@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import uuid
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -14,7 +15,6 @@ from services.edition_job_api import create_app
 from services.edition_job_store import EditionJobStore
 from services.edition_job_worker import EditionJobWorker
 from services.edition_news_fetch import EditionNewsCollector
-from services.edition_summary_provider import OpenAIResponsesProvider
 from services.edition_visual_provider import OpenAIVisualProvider
 
 DEFAULT_BIND_HOST = "127.0.0.1"
@@ -33,12 +33,12 @@ def create_authorized_worker() -> EditionJobWorker:
         raise RuntimeError("Q10 paid execution is disabled.")
     store, assets = _boundaries()
     store.initialize_schema()
-    worker_id = os.environ.get("GAZETE_WORKER_ID", "q10-loopback-worker")
+    worker_base = os.environ.get("GAZETE_WORKER_ID", "q10-loopback-worker")
+    worker_id = f"{worker_base}:{os.getpid()}:{uuid.uuid4().hex[:8]}"
     pipeline = EditionIntegrationPipeline(
         store=store,
         worker_id=worker_id,
         collector=EditionNewsCollector(),
-        summary_provider=OpenAIResponsesProvider(),
         visual_provider=OpenAIVisualProvider(),
         asset_store=assets,
         policy=IntegrationPolicy(paid_execution_enabled=True),

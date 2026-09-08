@@ -38,6 +38,7 @@ final class EditionGenerationController extends ChangeNotifier {
   EditionDocument? _edition;
   bool _isReducedEdition = false;
   int _epoch = 0;
+  bool _disposed = false;
 
   EditionGenerationState get state => _state;
   RemoteJobState? get remoteState => _remoteState;
@@ -48,6 +49,7 @@ final class EditionGenerationController extends ChangeNotifier {
   bool get isReducedEdition => _isReducedEdition;
   bool get canPrepare =>
       _state == EditionGenerationState.idle ||
+      _state == EditionGenerationState.ready ||
       _state == EditionGenerationState.failed ||
       _state == EditionGenerationState.cancelled;
   bool get canCancel =>
@@ -63,10 +65,16 @@ final class EditionGenerationController extends ChangeNotifier {
       return;
     }
     final epoch = ++_epoch;
+    if (_state == EditionGenerationState.ready) {
+      _jobId = null;
+      _idempotencyKey = null;
+      _remoteState = null;
+    }
     _state = EditionGenerationState.submitting;
     _failureCode = null;
-    _edition = null;
-    _isReducedEdition = false;
+    if (_edition == null) {
+      _isReducedEdition = false;
+    }
     _idempotencyKey ??= _idempotencyKeyFactory();
     notifyListeners();
     try {
@@ -124,7 +132,11 @@ final class EditionGenerationController extends ChangeNotifier {
     _state = EditionGenerationState.tracking;
     notifyListeners();
     try {
-      await _track(await _gateway.getJob(jobId), epoch);
+      final status = await _gateway.getJob(jobId);
+      if (!_isCurrent(epoch)) {
+        return;
+      }
+      await _track(status, epoch);
     } on Object {
       _fail('edition_service_unavailable', epoch);
     }
@@ -187,7 +199,7 @@ final class EditionGenerationController extends ChangeNotifier {
     _fail('status_timeout', epoch);
   }
 
-  bool _isCurrent(int epoch) => epoch == _epoch;
+  bool _isCurrent(int epoch) => !_disposed && epoch == _epoch;
 
   void _fail(String code, int epoch) {
     if (!_isCurrent(epoch)) {
@@ -203,5 +215,12 @@ final class EditionGenerationController extends ChangeNotifier {
     final bytes = List<int>.generate(16, (_) => random.nextInt(256));
     return 'mobile-${DateTime.now().toUtc().microsecondsSinceEpoch}-'
         '${bytes.map((value) => value.toRadixString(16).padLeft(2, '0')).join()}';
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _epoch++;
+    super.dispose();
   }
 }

@@ -43,11 +43,13 @@ class _LeaseKeepalive:
         store: EditionJobStore,
         job_id: str,
         worker_id: str,
+        expected_attempt: int,
         lease_seconds: float,
     ) -> None:
         self._store = store
         self._job_id = job_id
         self._worker_id = worker_id
+        self._expected_attempt = expected_attempt
         self._lease_seconds = lease_seconds
         self._interval = min(5.0, lease_seconds / 3.0)
         self._stop = Event()
@@ -80,6 +82,7 @@ class _LeaseKeepalive:
                     self._job_id,
                     self._worker_id,
                     lease_seconds=self._lease_seconds,
+                    expected_attempt=self._expected_attempt,
                 )
             except Exception as error:
                 self._failure = error
@@ -118,6 +121,7 @@ class EditionJobWorker:
             JobState.CANCELLED,
         ):
             return job
+        claimed_attempt = job.attempt
 
         completed_stages = 0
         while job.state not in (
@@ -129,6 +133,7 @@ class EditionJobWorker:
                 job.job_id,
                 self._worker_id,
                 lease_seconds=self._lease_seconds,
+                expected_attempt=claimed_attempt,
             )
             executor = self._executors.get(job.state)
             if executor is None:
@@ -138,6 +143,7 @@ class EditionJobWorker:
                     code="stage_executor_missing",
                     retryable=False,
                     diagnostic="No executor was supplied for the current stage.",
+                    expected_attempt=claimed_attempt,
                 )
 
             declared_failure: StageExecutionError | None = None
@@ -146,6 +152,7 @@ class EditionJobWorker:
                 self._store,
                 job.job_id,
                 self._worker_id,
+                claimed_attempt,
                 self._lease_seconds,
             )
             with keepalive:
@@ -166,6 +173,7 @@ class EditionJobWorker:
                     code=declared_failure.code,
                     retryable=declared_failure.retryable,
                     diagnostic=declared_failure.diagnostic,
+                    expected_attempt=claimed_attempt,
                 )
             if unexpected_failure:
                 return self._store.fail_job(
@@ -174,6 +182,7 @@ class EditionJobWorker:
                     code="internal_stage_error",
                     retryable=False,
                     diagnostic="Stage execution failed safely.",
+                    expected_attempt=claimed_attempt,
                 )
 
             stage_result = output if isinstance(output, IntegrationStageResult) else None
@@ -207,6 +216,7 @@ class EditionJobWorker:
                             if stage_result is not None
                             else None
                         ),
+                        expected_attempt=claimed_attempt,
                     )
                 except (
                     CanonicalEditionError,
@@ -220,6 +230,7 @@ class EditionJobWorker:
                         code="invalid_edition",
                         retryable=False,
                         diagnostic="Edition document failed canonical validation.",
+                        expected_attempt=claimed_attempt,
                     )
 
             try:
@@ -236,6 +247,7 @@ class EditionJobWorker:
                     manifest=(
                         stage_result.manifest if stage_result is not None else None
                     ),
+                    expected_attempt=claimed_attempt,
                 )
             except (IntegrationConflict, ValueError):
                 return self._store.fail_job(
@@ -244,6 +256,7 @@ class EditionJobWorker:
                     code="stage_persistence_error",
                     retryable=False,
                     diagnostic="Stage checkpoint failed safely.",
+                    expected_attempt=claimed_attempt,
                 )
             completed_stages += 1
             if max_stages is not None and completed_stages >= max_stages:

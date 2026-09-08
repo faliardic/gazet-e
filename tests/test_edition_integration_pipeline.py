@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import hashlib
+import ipaddress
+import json
+import multiprocessing
 import os
 from collections.abc import Iterator
 from datetime import datetime, timezone
@@ -23,13 +26,6 @@ from services.edition_job_validation import CanonicalEditionValidator
 from services.edition_job_worker import EditionJobWorker
 from services.edition_news_fetch import EditionNewsCollector
 from services.edition_news_registry import RSS_REGISTRY
-from services.edition_summary_models import (
-    ProviderUsage,
-    ReadingParagraph,
-    SummaryDraft,
-    VerificationVerdict,
-)
-from services.edition_summary_provider import ProviderResponse
 from services.edition_visual_models import VisualQAVerdict
 from services.edition_visual_provider import (
     GeneratedImageResponse,
@@ -66,47 +62,6 @@ class _Session:
         return _Response(self.payload)
 
 
-class _SummaryProvider:
-    def __init__(self) -> None:
-        self.generate_calls = 0
-        self.verify_calls = 0
-
-    def generate(self, packet, **_kwargs):
-        self.generate_calls += 1
-        source_ids = tuple(sorted({item.source_id for item in packet.evidence}))
-        return ProviderResponse(
-            payload=SummaryDraft(
-                dek="Günün gelişmesine ilişkin doğrulanmış kısa editoryal sunuş.",
-                summary="Kaynakların aktardığı gelişme, kanıt sınırları korunarak özetlendi.",
-                reading_body=(
-                    ReadingParagraph(
-                        type="paragraph",
-                        text="Ayrıntılar yalnız ilişkilendirilen açık kaynak kayıtlarına dayanır.",
-                    ),
-                ),
-                evidence_article_ids=tuple(item.article_id for item in packet.evidence),
-                evidence_source_ids=source_ids,
-            ),
-            response_model="gpt-5.6-terra-test",
-            usage=ProviderUsage(input_tokens=120, output_tokens=40),
-        )
-
-    def verify(self, _packet, _draft):
-        self.verify_calls += 1
-        return ProviderResponse(
-            payload=VerificationVerdict(status="passed", reason_codes=()),
-            response_model="gpt-5.6-terra-test",
-            usage=ProviderUsage(input_tokens=80, output_tokens=10),
-        )
-
-
-class _CrashOnSecondSummary(_SummaryProvider):
-    def generate(self, packet, **kwargs):
-        if self.generate_calls == 1:
-            self.generate_calls += 1
-            raise SystemExit("simulated process loss")
-        return super().generate(packet, **kwargs)
-
 class _VisualProvider:
     def __init__(
         self,
@@ -142,6 +97,94 @@ class _FailingAssetStore(DevelopmentAssetStore):
         raise AssetStoreError("simulated bounded write failure")
 
 
+class _PersistentVisualProvider(_VisualProvider):
+    def __init__(self, image_bytes: bytes, counter_path: str) -> None:
+        super().__init__(image_bytes)
+        self._counter_path = Path(counter_path)
+
+    def generate(self, brief):
+        _increment_counter(self._counter_path, "generate")
+        return super().generate(brief)
+
+    def verify(self, brief, image_bytes):
+        _increment_counter(self._counter_path, "verify")
+        return super().verify(brief, image_bytes)
+
+
+def _increment_counter(path: Path, field: str) -> None:
+    value = json.loads(path.read_text(encoding="utf-8"))
+    value[field] += 1
+    path.write_text(json.dumps(value, sort_keys=True), encoding="utf-8")
+
+
+def _process_worker(
+    dsn: str,
+    asset_root: str,
+    counter_path: str,
+    worker_id: str,
+    max_stages: int | None,
+    queue,
+) -> None:
+    try:
+        _assert_dedicated_postgres(dsn)
+        image = BytesIO()
+        Image.new("RGB", (1536, 1024), (35, 55, 89)).save(
+            image, format="WEBP", quality=80
+        )
+        pipeline = _pipeline(
+            EditionJobStore(dsn),
+            worker_id,
+            EditionNewsCollector(
+                registry=(RSS_REGISTRY[0],),
+                session=_Session(_rss(single=True)),
+                clock=lambda: NOW,
+                sleeper=lambda _delay: None,
+            ),
+            _PersistentVisualProvider(image.getvalue(), counter_path),
+            DevelopmentAssetStore(Path(asset_root).resolve()),
+        )
+        result = EditionJobWorker(
+            EditionJobStore(dsn), worker_id, pipeline.executors()
+        ).run_one(max_stages=max_stages)
+        queue.put(
+            {
+                "ok": result is not None,
+                "state": None if result is None else result.state.value,
+                "edition_id": None if result is None else result.edition_id,
+            }
+        )
+    except BaseException as error:
+        queue.put({"ok": False, "code": type(error).__name__})
+
+
+def _process_api_probe(dsn: str, asset_root: str, edition_id: str, queue) -> None:
+    try:
+        _assert_dedicated_postgres(dsn)
+        client = TestClient(
+            create_app(
+                EditionJobStore(dsn),
+                asset_store=DevelopmentAssetStore(Path(asset_root).resolve()),
+            )
+        )
+        edition_response = client.get(f"/v1/editions/{edition_id}")
+        document = edition_response.json()
+        asset_id = document["articles"][0]["visual"]["asset_id"]
+        asset_response = client.get(
+            f"/v1/editions/{edition_id}/assets/"
+            f"{asset_id.removeprefix('sha256:')}"
+        )
+        queue.put(
+            {
+                "ok": edition_response.status_code == 200
+                and asset_response.status_code == 200,
+                "contract_version": document.get("contract_version"),
+                "asset_bytes": len(asset_response.content),
+            }
+        )
+    except BaseException as error:
+        queue.put({"ok": False, "code": type(error).__name__})
+
+
 @pytest.fixture
 def store() -> Iterator[EditionJobStore]:
     dsn = _dsn()
@@ -173,7 +216,6 @@ def test_real_worker_api_asset_and_exact_cache_path(
         clock=lambda: NOW,
         sleeper=lambda _delay: None,
     )
-    summaries = _SummaryProvider()
     visuals = _VisualProvider(image_bytes)
     assets = DevelopmentAssetStore((tmp_path / "objects").resolve())
     client = TestClient(create_app(store, asset_store=assets))
@@ -193,11 +235,10 @@ def test_real_worker_api_asset_and_exact_cache_path(
     assert repeated.json()["job_id"] == created.json()["job_id"]
 
     worker_id = "q10-worker-a"
-    pipeline = _pipeline(store, worker_id, collector, summaries, visuals, assets)
+    pipeline = _pipeline(store, worker_id, collector, visuals, assets)
     result = EditionJobWorker(store, worker_id, pipeline.executors()).run_one()
     assert result is not None
     assert result.state is JobState.READY, result.failure_code
-    assert summaries.generate_calls == summaries.verify_calls == 2
     assert visuals.generate_calls == visuals.verify_calls == 2
     assert session.calls == 1
 
@@ -225,30 +266,18 @@ def test_real_worker_api_asset_and_exact_cache_path(
     assert report.status_code == 200
     assert report.json()["edition_id"] == result.edition_id
 
-    first_counts = (
-        summaries.generate_calls,
-        summaries.verify_calls,
-        visuals.generate_calls,
-        visuals.verify_calls,
-    )
+    first_counts = (visuals.generate_calls, visuals.verify_calls)
     second = store.create_job("q10-cache", request)
     next_worker = "q10-worker-cache"
-    next_pipeline = _pipeline(
-        store, next_worker, collector, summaries, visuals, assets
-    )
+    next_pipeline = _pipeline(store, next_worker, collector, visuals, assets)
     second_result = EditionJobWorker(
         store, next_worker, next_pipeline.executors()
     ).run_one()
     assert second_result is not None and second_result.state is JobState.READY
-    assert first_counts == (
-        summaries.generate_calls,
-        summaries.verify_calls,
-        visuals.generate_calls,
-        visuals.verify_calls,
-    )
+    assert first_counts == (visuals.generate_calls, visuals.verify_calls)
     assert second.job_id != result.job_id
     usage = store.get_integration_run(result.job_id)
-    assert usage["logical_provider_calls"] == 8
+    assert usage["logical_provider_calls"] == 4
     assert usage["generated_images"] == 2
     assert float(usage["estimated_cost_usd"]) < 0.15
 
@@ -263,30 +292,99 @@ def test_worker_process_replacement_resumes_from_durable_checkpoints(
         session=_Session(_rss(single=True)),
         clock=lambda: NOW,
     )
-    summaries = _SummaryProvider()
     visuals = _VisualProvider(image_bytes)
     assets = DevelopmentAssetStore((tmp_path / "objects").resolve())
     job = store.create_job("q10-recovery", _request())
     first_store = EditionJobStore(_dsn())
     first_pipeline = _pipeline(
-        first_store, "replacement-first", collector, summaries, visuals, assets
+        first_store, "replacement-first", collector, visuals, assets
     )
     current = EditionJobWorker(
         first_store, "replacement-first", first_pipeline.executors()
     ).run_one(max_stages=2)
-    assert current is not None and current.state is JobState.SUMMARIZING
+    assert current is not None and current.state is JobState.ILLUSTRATING
     _expire_lease(job.job_id)
     final_store = EditionJobStore(_dsn())
     pipeline = _pipeline(
-        final_store, "replacement-final", collector, summaries, visuals, assets
+        final_store, "replacement-final", collector, visuals, assets
     )
     final = EditionJobWorker(
         final_store, "replacement-final", pipeline.executors()
     ).run_one()
     assert final is not None
     assert final.state is JobState.READY, final.failure_code
-    assert summaries.generate_calls == 1
     assert visuals.generate_calls == 1
+
+
+def test_separate_worker_and_api_processes_reuse_completed_visual_work(
+    store: EditionJobStore,
+    tmp_path: Path,
+) -> None:
+    dsn = _dsn()
+    asset_root = (tmp_path / "process-objects").resolve()
+    counter_path = (tmp_path / "provider-counts.json").resolve()
+    counter_path.write_text(
+        json.dumps({"generate": 0, "verify": 0}), encoding="utf-8"
+    )
+    job = store.create_job("q10-real-process-recovery", _request())
+    context = multiprocessing.get_context("spawn")
+
+    first_queue = context.Queue()
+    first = context.Process(
+        target=_process_worker,
+        args=(
+            dsn,
+            str(asset_root),
+            str(counter_path),
+            "process-worker-a",
+            3,
+            first_queue,
+        ),
+    )
+    first.start()
+    first.join(timeout=30)
+    assert first.exitcode == 0
+    first_result = first_queue.get(timeout=5)
+    assert first_result == {"ok": True, "state": "laying_out", "edition_id": None}
+
+    _expire_lease(job.job_id)
+    second_queue = context.Queue()
+    second = context.Process(
+        target=_process_worker,
+        args=(
+            dsn,
+            str(asset_root),
+            str(counter_path),
+            "process-worker-b",
+            None,
+            second_queue,
+        ),
+    )
+    second.start()
+    second.join(timeout=30)
+    assert second.exitcode == 0
+    second_result = second_queue.get(timeout=5)
+    assert second_result["ok"] is True
+    assert second_result["state"] == "ready"
+    edition_id = second_result["edition_id"]
+    assert isinstance(edition_id, str)
+    assert json.loads(counter_path.read_text(encoding="utf-8")) == {
+        "generate": 1,
+        "verify": 1,
+    }
+
+    api_queue = context.Queue()
+    api_process = context.Process(
+        target=_process_api_probe,
+        args=(dsn, str(asset_root), edition_id, api_queue),
+    )
+    api_process.start()
+    api_process.join(timeout=30)
+    assert api_process.exitcode == 0
+    api_result = api_queue.get(timeout=5)
+    assert api_result["ok"] is True
+    assert api_result["contract_version"] == "gazet-e.edition.v2"
+    assert api_result["asset_bytes"] > 0
 
 
 def test_laying_out_reentry_freezes_edition_identity_and_timestamp(
@@ -299,16 +397,13 @@ def test_laying_out_reentry_freezes_edition_identity_and_timestamp(
         session=_Session(_rss(single=True)),
         clock=lambda: NOW,
     )
-    summaries = _SummaryProvider()
     visuals = _VisualProvider(image_bytes)
     assets = DevelopmentAssetStore((tmp_path / "objects").resolve())
     job = store.create_job("q10-layout-reentry", _request())
-    pipeline = _pipeline(
-        store, "layout-worker", collector, summaries, visuals, assets
-    )
+    pipeline = _pipeline(store, "layout-worker", collector, visuals, assets)
     laying_out = EditionJobWorker(
         store, "layout-worker", pipeline.executors()
-    ).run_one(max_stages=4)
+    ).run_one(max_stages=3)
     assert laying_out is not None and laying_out.state is JobState.LAYING_OUT
 
     first = pipeline.assemble(laying_out)
@@ -323,6 +418,7 @@ def test_laying_out_reentry_freezes_edition_identity_and_timestamp(
         CanonicalEditionValidator(),
         manifest_version=first.manifest_version,
         manifest=first.manifest,
+        expected_attempt=laying_out.attempt,
     )
     assert ready.state is JobState.READY
     assert ready.edition_id == first.edition_document["edition"]["id"]
@@ -337,36 +433,47 @@ def test_cancellation_and_unknown_outcome_block_additional_dispatch(
     policy = IntegrationPolicy(paid_execution_enabled=True)
     store.ensure_integration_run(
         job.job_id,
+        "fence-a",
+        expected_attempt=claimed.attempt,
         policy_version=policy.version,
         policy_fingerprint=policy.fingerprint(),
         policy=policy.model_dump(mode="json"),
     )
     cache_key = "sha256:" + "a" * 64
-    operation_id = "summary:" + cache_key
+    operation_id = "visual:" + cache_key
     reserved = store.reserve_paid_operation(
         job.job_id,
         "fence-a",
+        expected_attempt=claimed.attempt,
         operation_id=operation_id,
-        artifact_kind="summary",
+        artifact_kind="visual",
         cache_key=cache_key,
-        logical_calls=4,
-        transport_attempts=8,
-        generated_images=0,
-        estimated_cost_usd=0.04,
+        logical_calls=2,
+        transport_attempts=4,
+        generated_images=1,
+        estimated_cost_usd=0.08,
     )
     assert reserved["state"] == "reserved"
     store.request_cancellation(job.job_id)
     with pytest.raises(PaidDispatchBlocked):
-        store.assert_dispatch_allowed(job.job_id, "fence-a", operation_id)
+        store.assert_dispatch_allowed(
+            job.job_id,
+            "fence-a",
+            operation_id,
+            expected_attempt=claimed.attempt,
+        )
 
     _expire_lease(job.job_id)
     cancelled = store.claim_job("fence-b")
     assert cancelled is not None and cancelled.state is JobState.CANCELLED
 
     uncertain_job = store.create_job("q10-uncertain", _request())
-    store.claim_job("uncertain-a", lease_seconds=30)
+    uncertain_claim = store.claim_job("uncertain-a", lease_seconds=30)
+    assert uncertain_claim is not None
     store.ensure_integration_run(
         uncertain_job.job_id,
+        "uncertain-a",
+        expected_attempt=uncertain_claim.attempt,
         policy_version=policy.version,
         policy_fingerprint=policy.fingerprint(),
         policy=policy.model_dump(mode="json"),
@@ -374,13 +481,14 @@ def test_cancellation_and_unknown_outcome_block_additional_dispatch(
     store.reserve_paid_operation(
         uncertain_job.job_id,
         "uncertain-a",
+        expected_attempt=uncertain_claim.attempt,
         operation_id=operation_id,
-        artifact_kind="summary",
+        artifact_kind="visual",
         cache_key=cache_key,
-        logical_calls=4,
-        transport_attempts=8,
-        generated_images=0,
-        estimated_cost_usd=0.04,
+        logical_calls=2,
+        transport_attempts=4,
+        generated_images=1,
+        estimated_cost_usd=0.08,
     )
     _expire_lease(uncertain_job.job_id)
     resumed = store.claim_job("uncertain-b", lease_seconds=30)
@@ -388,19 +496,69 @@ def test_cancellation_and_unknown_outcome_block_additional_dispatch(
     uncertain = store.reserve_paid_operation(
         uncertain_job.job_id,
         "uncertain-b",
+        expected_attempt=resumed.attempt,
         operation_id=operation_id,
-        artifact_kind="summary",
+        artifact_kind="visual",
         cache_key=cache_key,
-        logical_calls=4,
-        transport_attempts=8,
-        generated_images=0,
-        estimated_cost_usd=0.04,
+        logical_calls=2,
+        transport_attempts=4,
+        generated_images=1,
+        estimated_cost_usd=0.08,
     )
     assert uncertain["state"] == "uncertain"
     with pytest.raises(PaidDispatchBlocked):
         store.assert_dispatch_allowed(
-            uncertain_job.job_id, "uncertain-b", operation_id
+            uncertain_job.job_id,
+            "uncertain-b",
+            operation_id,
+            expected_attempt=resumed.attempt,
         )
+
+
+def test_persistent_budget_scope_covers_distinct_jobs_in_one_authorized_run(
+    store: EditionJobStore,
+) -> None:
+    policy = IntegrationPolicy(paid_execution_enabled=True)
+    cache_key = "sha256:" + "9" * 64
+    for index in range(2):
+        created = store.create_job(f"q10-budget-scope-{index}", _request())
+        claimed = store.claim_job(f"budget-worker-{index}", lease_seconds=30)
+        assert claimed is not None and claimed.job_id == created.job_id
+        store.ensure_integration_run(
+            created.job_id,
+            f"budget-worker-{index}",
+            expected_attempt=claimed.attempt,
+            policy_version=policy.version,
+            policy_fingerprint=policy.fingerprint(),
+            policy=policy.model_dump(mode="json"),
+        )
+        if index == 0:
+            store.reserve_paid_operation(
+                created.job_id,
+                f"budget-worker-{index}",
+                expected_attempt=claimed.attempt,
+                operation_id=f"visual:{cache_key}",
+                artifact_kind="visual",
+                cache_key=cache_key,
+                logical_calls=6,
+                transport_attempts=12,
+                generated_images=3,
+                estimated_cost_usd=0.24,
+            )
+        else:
+            with pytest.raises(PaidDispatchBlocked, match="budget is exhausted"):
+                store.reserve_paid_operation(
+                    created.job_id,
+                    f"budget-worker-{index}",
+                    expected_attempt=claimed.attempt,
+                    operation_id=f"visual:{cache_key}",
+                    artifact_kind="visual",
+                    cache_key=cache_key,
+                    logical_calls=4,
+                    transport_attempts=8,
+                    generated_images=2,
+                    estimated_cost_usd=0.16,
+                )
 
 
 def test_mid_batch_process_loss_reuses_success_and_never_replays_unknown_call(
@@ -413,30 +571,27 @@ def test_mid_batch_process_loss_reuses_success_and_never_replays_unknown_call(
         session=_Session(_rss()),
         clock=lambda: NOW,
     )
-    summaries = _CrashOnSecondSummary()
-    visuals = _VisualProvider(image_bytes)
+    visuals = _CrashOnSecondVisual(image_bytes)
     assets = DevelopmentAssetStore((tmp_path / "objects").resolve())
     job = store.create_job("q10-mid-batch", _request())
-    first_pipeline = _pipeline(
-        store, "crash-worker", collector, summaries, visuals, assets
-    )
+    first_pipeline = _pipeline(store, "crash-worker", collector, visuals, assets)
 
     with pytest.raises(SystemExit):
         EditionJobWorker(
             store, "crash-worker", first_pipeline.executors()
         ).run_one()
-    assert store.get_job(job.job_id).state is JobState.SUMMARIZING
-    assert summaries.generate_calls == 2
-    assert summaries.verify_calls == 1
+    assert store.get_job(job.job_id).state is JobState.ILLUSTRATING
+    assert visuals.generate_calls == 2
+    assert visuals.verify_calls == 1
 
     _expire_lease(job.job_id)
     replacement = EditionJobStore(_dsn())
+    resumed_visuals = _VisualProvider(image_bytes)
     resumed_pipeline = _pipeline(
         replacement,
         "resume-worker",
         collector,
-        summaries,
-        visuals,
+        resumed_visuals,
         assets,
     )
     result = EditionJobWorker(
@@ -444,21 +599,21 @@ def test_mid_batch_process_loss_reuses_success_and_never_replays_unknown_call(
     ).run_one()
 
     assert result is not None and result.state is JobState.READY
-    assert summaries.generate_calls == 2
-    assert summaries.verify_calls == 1
-    assert visuals.generate_calls == visuals.verify_calls == 1
-    summary_manifest = replacement.get_stage_manifest(
-        job.job_id, JobState.SUMMARIZING
+    assert visuals.generate_calls == 2
+    assert visuals.verify_calls == 1
+    assert resumed_visuals.generate_calls == resumed_visuals.verify_calls == 0
+    visual_manifest = replacement.get_stage_manifest(
+        job.job_id, JobState.ILLUSTRATING
     )["manifest"]
-    assert [item["status"] for item in summary_manifest["items"]] == [
+    assert [item["status"] for item in visual_manifest["items"]] == [
         "ready",
         "unavailable",
     ]
-    assert summary_manifest["items"][1]["reason_codes"] == [
+    assert visual_manifest["items"][1]["reason_codes"] == [
         "provider_outcome_uncertain"
     ]
     run = replacement.get_integration_run(job.job_id)
-    assert run["logical_provider_calls"] == 8
+    assert run["logical_provider_calls"] == 4
     assembly = replacement.get_stage_manifest(
         job.job_id, JobState.LAYING_OUT
     )["manifest"]
@@ -538,7 +693,6 @@ def test_failed_visual_never_publishes_a_ready_edition(
         session=_Session(_rss(single=True)),
         clock=lambda: NOW,
     )
-    summaries = _SummaryProvider()
     visuals = _VisualProvider(
         image_bytes,
         verdict=VisualQAVerdict(
@@ -548,9 +702,7 @@ def test_failed_visual_never_publishes_a_ready_edition(
     )
     assets = DevelopmentAssetStore((tmp_path / "objects").resolve())
     job = store.create_job("q10-fail-closed", _request())
-    pipeline = _pipeline(
-        store, "q10-fail-worker", collector, summaries, visuals, assets
-    )
+    pipeline = _pipeline(store, "q10-fail-worker", collector, visuals, assets)
 
     result = EditionJobWorker(
         store, "q10-fail-worker", pipeline.executors()
@@ -574,13 +726,10 @@ def test_layout_overflow_is_reported_without_publishing_unplaced_article(
         session=_Session(_rss_with_long_headline()),
         clock=lambda: NOW,
     )
-    summaries = _SummaryProvider()
     visuals = _VisualProvider(image_bytes)
     assets = DevelopmentAssetStore((tmp_path / "objects").resolve())
     job = store.create_job("q10-layout-overflow", _request())
-    pipeline = _pipeline(
-        store, "overflow-worker", collector, summaries, visuals, assets
-    )
+    pipeline = _pipeline(store, "overflow-worker", collector, visuals, assets)
     result = EditionJobWorker(
         store, "overflow-worker", pipeline.executors()
     ).run_one()
@@ -607,12 +756,11 @@ def test_asset_write_failure_does_not_advance_to_ready(
         session=_Session(_rss(single=True)),
         clock=lambda: NOW,
     )
-    summaries = _SummaryProvider()
     visuals = _VisualProvider(image_bytes)
     assets = _FailingAssetStore((tmp_path / "objects").resolve())
     store.create_job("q10-asset-write-failure", _request())
     pipeline = _pipeline(
-        store, "asset-failure-worker", collector, summaries, visuals, assets
+        store, "asset-failure-worker", collector, visuals, assets
     )
 
     result = EditionJobWorker(
@@ -624,12 +772,11 @@ def test_asset_write_failure_does_not_advance_to_ready(
     assert result.edition_id is None
 
 
-def _pipeline(store, worker_id, collector, summaries, visuals, assets):
+def _pipeline(store, worker_id, collector, visuals, assets):
     return EditionIntegrationPipeline(
         store=store,
         worker_id=worker_id,
         collector=collector,
-        summary_provider=summaries,
         visual_provider=visuals,
         asset_store=assets,
         policy=IntegrationPolicy(paid_execution_enabled=True),
@@ -639,7 +786,7 @@ def _pipeline(store, worker_id, collector, summaries, visuals, assets):
 
 def _request() -> EditionRequest:
     return EditionRequest(
-        request_version="gazet-e.edition-request.v1",
+        request_version="gazet-e.edition-request.v2",
         locale="tr-TR",
         timezone="Europe/Istanbul",
     )
@@ -683,16 +830,46 @@ def _dsn() -> str:
     value = os.environ.get("GAZETE_TEST_POSTGRES_DSN")
     if not value:
         pytest.fail("Dedicated local PostgreSQL test boundary is required.")
+    _assert_dedicated_postgres(value)
     return value
 
 
+def _assert_dedicated_postgres(dsn: str, *, connect=psycopg.connect) -> None:
+    """Reject every non-Q05 disposable loopback target before a write."""
+
+    with connect(dsn) as connection:
+        identity = connection.execute(
+            "SELECT current_database(), current_user, inet_server_addr()"
+        ).fetchone()
+    if identity is None or (
+        identity[0] != "gazete_q05_test"
+        or identity[1] != "gazete_q05_test"
+        or not ipaddress.ip_interface(str(identity[2])).ip.is_loopback
+    ):
+        raise RuntimeError(
+            "Refusing Q10 test mutation outside the dedicated disposable "
+            "gazete_q05_test database/role on loopback."
+        )
+
+
+class _CrashOnSecondVisual(_VisualProvider):
+    def generate(self, brief):
+        if self.generate_calls == 1:
+            self.generate_calls += 1
+            raise SystemExit("simulated process loss")
+        return super().generate(brief)
+
+
 def _truncate(dsn: str) -> None:
+    _assert_dedicated_postgres(dsn)
     with psycopg.connect(dsn) as connection:
         connection.execute("TRUNCATE edition_jobs, editions CASCADE")
 
 
 def _expire_lease(job_id: str) -> None:
-    with psycopg.connect(_dsn()) as connection:
+    dsn = _dsn()
+    _assert_dedicated_postgres(dsn)
+    with psycopg.connect(dsn) as connection:
         connection.execute(
             """
             UPDATE edition_jobs
@@ -701,3 +878,32 @@ def _expire_lease(job_id: str) -> None:
             """,
             (job_id,),
         )
+
+
+def test_database_guard_rejects_wrong_target_before_mutation() -> None:
+    statements: list[str] = []
+
+    class _Cursor:
+        def fetchone(self):
+            return ("shared_database", "shared_role", "10.0.0.10")
+
+    class _Connection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def execute(self, statement, *_args):
+            statements.append(str(statement))
+            return _Cursor()
+
+    with pytest.raises(RuntimeError, match="Refusing Q10 test mutation"):
+        _assert_dedicated_postgres(
+            "postgresql://not-used",
+            connect=lambda _dsn: _Connection(),
+        )
+
+    assert len(statements) == 1
+    assert statements[0].startswith("SELECT current_database()")
+    assert all("TRUNCATE" not in statement and "UPDATE" not in statement for statement in statements)

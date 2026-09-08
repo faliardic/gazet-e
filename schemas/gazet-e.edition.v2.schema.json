@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/faliardic/gazet-e/blob/main/schemas/gazet-e.edition.v2.schema.json",
+  "title": "Gazet+E canonical physical interactive edition v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "edition", "pages", "articles", "cache"],
+  "properties": {
+    "contract_version": { "const": "gazet-e.edition.v2" },
+    "edition": { "$ref": "#/$defs/edition" },
+    "pages": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/page" } },
+    "articles": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/article" } },
+    "cache": { "$ref": "#/$defs/editionCache" }
+  },
+  "$defs": {
+    "nonEmptyString": { "type": "string", "minLength": 1 },
+    "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "edition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "state", "title", "requested_at", "generated_at", "locale", "timezone", "brand", "versions"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "state": { "const": "ready" },
+        "title": { "$ref": "#/$defs/nonEmptyString" },
+        "requested_at": { "$ref": "#/$defs/timestamp" },
+        "generated_at": { "$ref": "#/$defs/timestamp" },
+        "locale": { "$ref": "#/$defs/nonEmptyString" },
+        "timezone": { "$ref": "#/$defs/nonEmptyString" },
+        "brand": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "masthead"],
+          "properties": { "name": { "const": "Gazet+E" }, "masthead": { "const": "GAZET+E" } }
+        },
+        "versions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["visual_brief", "visual_style", "layout_engine", "physical_layout", "ad_policy"],
+          "properties": {
+            "visual_brief": { "$ref": "#/$defs/nonEmptyString" },
+            "visual_style": { "$ref": "#/$defs/nonEmptyString" },
+            "layout_engine": { "$ref": "#/$defs/nonEmptyString" },
+            "physical_layout": { "$ref": "#/$defs/nonEmptyString" },
+            "ad_policy": { "$ref": "#/$defs/nonEmptyString" }
+          }
+        }
+      }
+    },
+    "page": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "order", "label", "section", "physical_profile", "canvas", "template", "placements", "ads"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "order": { "type": "integer", "minimum": 1 },
+        "label": { "$ref": "#/$defs/nonEmptyString" },
+        "section": { "$ref": "#/$defs/nonEmptyString" },
+        "physical_profile": { "$ref": "#/$defs/physicalProfile" },
+        "canvas": { "$ref": "#/$defs/canvas" },
+        "template": { "$ref": "#/$defs/template" },
+        "placements": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/placement" } },
+        "ads": { "type": "array", "maxItems": 1, "items": { "$ref": "#/$defs/ad" } }
+      }
+    },
+    "physicalProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "width_mm", "height_mm", "logical_units_per_mm"],
+      "properties": {
+        "version": { "const": "gazet-e.physical-profile.350x500.v1" },
+        "width_mm": { "const": 350 },
+        "height_mm": { "const": 500 },
+        "logical_units_per_mm": { "const": 2 }
+      }
+    },
+    "canvas": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height", "unit"],
+      "properties": { "width": { "const": 700 }, "height": { "const": 1000 }, "unit": { "const": "logical" } }
+    },
+    "template": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version"],
+      "properties": { "id": { "$ref": "#/$defs/nonEmptyString" }, "version": { "$ref": "#/$defs/nonEmptyString" } }
+    },
+    "placement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "article_id", "role", "rect", "z_index", "hit_regions"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "article_id": { "$ref": "#/$defs/nonEmptyString" },
+        "role": { "enum": ["hero", "secondary", "brief"] },
+        "rect": { "$ref": "#/$defs/rect" },
+        "z_index": { "type": "integer", "minimum": 0 },
+        "hit_regions": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/hitRegion" } }
+      }
+    },
+    "rect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "width", "height"],
+      "properties": {
+        "x": { "type": "number", "minimum": 0 },
+        "y": { "type": "number", "minimum": 0 },
+        "width": { "type": "number", "exclusiveMinimum": 0 },
+        "height": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "hitRegion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "action", "rect", "accessibility_label"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "action": { "enum": ["open_reading", "open_source"] },
+        "rect": { "$ref": "#/$defs/rect" },
+        "accessibility_label": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "ad": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "creative_id", "label", "headline", "body", "rect"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "creative_id": { "$ref": "#/$defs/nonEmptyString" },
+        "label": { "const": "REKLAM" },
+        "headline": { "$ref": "#/$defs/nonEmptyString" },
+        "body": { "$ref": "#/$defs/nonEmptyString" },
+        "rect": { "$ref": "#/$defs/rect" }
+      }
+    },
+    "article": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "cluster_id", "content_version", "headline", "primary_source_id", "sources", "visual", "cache"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "cluster_id": { "$ref": "#/$defs/nonEmptyString" },
+        "content_version": { "$ref": "#/$defs/sha256" },
+        "headline": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "feed_excerpt": { "type": "string", "maxLength": 1200 },
+        "primary_source_id": { "$ref": "#/$defs/nonEmptyString" },
+        "sources": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/source" } },
+        "visual": { "$ref": "#/$defs/visual" },
+        "cache": { "$ref": "#/$defs/articleCache" }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "publisher_id", "name", "canonical_url"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "publisher_id": { "$ref": "#/$defs/nonEmptyString" },
+        "name": { "$ref": "#/$defs/nonEmptyString" },
+        "canonical_url": { "type": "string", "format": "uri", "pattern": "^https://" },
+        "published_at": { "$ref": "#/$defs/timestamp" }
+      }
+    },
+    "visual": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["asset_id", "content_hash", "width", "height", "alt", "transparency_label", "provenance"],
+      "properties": {
+        "asset_id": { "$ref": "#/$defs/sha256" },
+        "content_hash": { "$ref": "#/$defs/sha256" },
+        "width": { "type": "integer", "minimum": 1, "maximum": 4096 },
+        "height": { "type": "integer", "minimum": 1, "maximum": 4096 },
+        "alt": { "$ref": "#/$defs/nonEmptyString" },
+        "transparency_label": { "const": "AI-generated editorial image" },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["generated_by_ai", "provider", "model", "generated_at", "brief_version", "style_version", "safety_class", "cache_key"],
+          "properties": {
+            "generated_by_ai": { "const": true },
+            "provider": { "$ref": "#/$defs/nonEmptyString" },
+            "model": { "$ref": "#/$defs/nonEmptyString" },
+            "generated_at": { "$ref": "#/$defs/timestamp" },
+            "brief_version": { "$ref": "#/$defs/nonEmptyString" },
+            "style_version": { "$ref": "#/$defs/nonEmptyString" },
+            "safety_class": { "$ref": "#/$defs/nonEmptyString" },
+            "cache_key": { "$ref": "#/$defs/sha256" }
+          }
+        }
+      }
+    },
+    "articleCache": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["visual_brief_key"],
+      "properties": { "visual_brief_key": { "$ref": "#/$defs/sha256" } }
+    },
+    "editionCache": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["edition_key", "layout_key"],
+      "properties": {
+        "edition_key": { "$ref": "#/$defs/sha256" },
+        "layout_key": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  }
+}

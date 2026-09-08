@@ -213,6 +213,8 @@ mobile edition zinciri tamamlanır. AI text generation/verifier/repair yoktur.
 
 Acceptance:
 
+- active request/edition contracts are `gazet-e.edition-request.v2` and
+  `gazet-e.edition.v2`; new jobs never enter historical `summarizing`;
 - kullanıcı manuel teknik adım yapmaz;
 - progress anlaşılırdır;
 - partial failure edition'ı bütünüyle gereksiz bozmaz;

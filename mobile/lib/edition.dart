@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'dart:ui';
 
 const supportedContractVersion = 'gazet-e.edition.v1';
+const activeContractVersion = 'gazet-e.edition.v2';
+const legacyContractVersion = supportedContractVersion;
 
 typedef EditionAssetPathResolver = String? Function(String assetId);
 typedef EditionAssetBytesResolver = Uint8List? Function(String assetId);
@@ -62,16 +64,19 @@ final class EditionDocument {
       json['contract_version'],
       'contract_version',
     );
-    if (contractVersion != supportedContractVersion) {
+    if (contractVersion != activeContractVersion &&
+        contractVersion != legacyContractVersion) {
       throw FormatException(
         'Unsupported contract_version "$contractVersion"; expected '
-        '"$supportedContractVersion".',
+        '"$activeContractVersion" or "$legacyContractVersion".',
       );
     }
+    final isV2 = contractVersion == activeContractVersion;
 
     final edition = EditionMetadata.fromJson(
       _map(json['edition'], 'edition'),
       'edition',
+      isV2: isV2,
     );
 
     final articleList = _list(json['articles'], 'articles');
@@ -85,6 +90,7 @@ final class EditionDocument {
         'articles[$index]',
         assetResolver: assetResolver,
         assetBytesResolver: assetBytesResolver,
+        isV2: isV2,
       );
       if (articles.containsKey(article.id)) {
         throw FormatException('Duplicate article id "${article.id}".');
@@ -104,6 +110,7 @@ final class EditionDocument {
       final page = NewspaperPage.fromJson(
         _map(pageList[index], 'pages[$index]'),
         'pages[$index]',
+        isV2: isV2,
       );
       if (!pageIds.add(page.id)) {
         throw FormatException('Duplicate page id "${page.id}".');
@@ -142,6 +149,20 @@ final class EditionDocument {
         }
       }
       pages.add(page);
+    }
+
+    if (isV2) {
+      final placed = pages
+          .expand((page) => page.placements)
+          .map((placement) => placement.articleId)
+          .toList(growable: false);
+      if (placed.length != placed.toSet().length ||
+          placed.toSet().difference(articles.keys.toSet()).isNotEmpty ||
+          articles.keys.toSet().difference(placed.toSet()).isNotEmpty) {
+        throw const FormatException(
+          'v2 articles must each have exactly one editorial placement.',
+        );
+      }
     }
 
     return EditionDocument(
@@ -189,7 +210,11 @@ final class EditionMetadata {
   final String masthead;
   final EditionVersions versions;
 
-  factory EditionMetadata.fromJson(Map<String, Object?> json, String path) {
+  factory EditionMetadata.fromJson(
+    Map<String, Object?> json,
+    String path, {
+    required bool isV2,
+  }) {
     _expectKeys(json, path, {
       'id',
       'state',
@@ -232,6 +257,7 @@ final class EditionMetadata {
       versions: EditionVersions.fromJson(
         _map(json['versions'], '$path.versions'),
         '$path.versions',
+        isV2: isV2,
       ),
     );
   }
@@ -251,45 +277,72 @@ final class EditionMetadata {
 
 final class EditionVersions {
   const EditionVersions({
-    required this.editorialPolicy,
-    required this.summaryPrompt,
+    this.editorialPolicy,
+    this.summaryPrompt,
     required this.visualBrief,
     required this.visualStyle,
     required this.layoutEngine,
+    this.physicalLayout,
+    this.adPolicy,
   });
 
-  final String editorialPolicy;
-  final String summaryPrompt;
+  final String? editorialPolicy;
+  final String? summaryPrompt;
   final String visualBrief;
   final String visualStyle;
   final String layoutEngine;
+  final String? physicalLayout;
+  final String? adPolicy;
 
-  factory EditionVersions.fromJson(Map<String, Object?> json, String path) {
-    _expectKeys(json, path, {
-      'editorial_policy',
-      'summary_prompt',
-      'visual_brief',
-      'visual_style',
-      'layout_engine',
-    });
+  factory EditionVersions.fromJson(
+    Map<String, Object?> json,
+    String path, {
+    required bool isV2,
+  }) {
+    _expectKeys(
+      json,
+      path,
+      isV2
+          ? {
+              'visual_brief',
+              'visual_style',
+              'layout_engine',
+              'physical_layout',
+              'ad_policy',
+            }
+          : {
+              'editorial_policy',
+              'summary_prompt',
+              'visual_brief',
+              'visual_style',
+              'layout_engine',
+            },
+    );
     return EditionVersions(
-      editorialPolicy: _string(
-        json['editorial_policy'],
-        '$path.editorial_policy',
-      ),
-      summaryPrompt: _string(json['summary_prompt'], '$path.summary_prompt'),
+      editorialPolicy: isV2
+          ? null
+          : _string(json['editorial_policy'], '$path.editorial_policy'),
+      summaryPrompt: isV2
+          ? null
+          : _string(json['summary_prompt'], '$path.summary_prompt'),
       visualBrief: _string(json['visual_brief'], '$path.visual_brief'),
       visualStyle: _string(json['visual_style'], '$path.visual_style'),
       layoutEngine: _string(json['layout_engine'], '$path.layout_engine'),
+      physicalLayout: isV2
+          ? _string(json['physical_layout'], '$path.physical_layout')
+          : null,
+      adPolicy: isV2 ? _string(json['ad_policy'], '$path.ad_policy') : null,
     );
   }
 
   Map<String, Object?> toJson() => {
-    'editorial_policy': editorialPolicy,
-    'summary_prompt': summaryPrompt,
+    if (editorialPolicy != null) 'editorial_policy': editorialPolicy,
+    if (summaryPrompt != null) 'summary_prompt': summaryPrompt,
     'visual_brief': visualBrief,
     'visual_style': visualStyle,
     'layout_engine': layoutEngine,
+    if (physicalLayout != null) 'physical_layout': physicalLayout,
+    if (adPolicy != null) 'ad_policy': adPolicy,
   };
 }
 
@@ -302,6 +355,8 @@ final class NewspaperPage {
     required this.canvas,
     required this.template,
     required this.placements,
+    this.physicalProfile,
+    this.ads = const [],
   });
 
   final String id;
@@ -311,8 +366,14 @@ final class NewspaperPage {
   final CanvasSpec canvas;
   final TemplateSpec template;
   final List<Placement> placements;
+  final PhysicalProfile? physicalProfile;
+  final List<PageAd> ads;
 
-  factory NewspaperPage.fromJson(Map<String, Object?> json, String path) {
+  factory NewspaperPage.fromJson(
+    Map<String, Object?> json,
+    String path, {
+    required bool isV2,
+  }) {
     _expectKeys(json, path, {
       'id',
       'order',
@@ -321,6 +382,8 @@ final class NewspaperPage {
       'canvas',
       'template',
       'placements',
+      if (isV2) 'physical_profile',
+      if (isV2) 'ads',
     });
     final canvas = CanvasSpec.fromJson(
       _map(json['canvas'], '$path.canvas'),
@@ -348,7 +411,55 @@ final class NewspaperPage {
           throw FormatException('Duplicate hit region id "${hit.id}".');
         }
       }
+      if (isV2 && !placement.rect.containsEvery(placement.hitRegions)) {
+        throw FormatException(
+          '$placementPath hit regions must remain inside the placement.',
+        );
+      }
+      if (isV2 &&
+          placements.any((item) => item.rect.overlaps(placement.rect))) {
+        throw FormatException('$path editorial placements must not overlap.');
+      }
       placements.add(placement);
+    }
+    final physicalProfile = isV2
+        ? PhysicalProfile.fromJson(
+            _map(json['physical_profile'], '$path.physical_profile'),
+            '$path.physical_profile',
+          )
+        : null;
+    if (isV2 && (canvas.width != 700 || canvas.height != 1000)) {
+      throw FormatException(
+        '$path v2 canvas must be exactly 700×1000 logical.',
+      );
+    }
+    final ads = <PageAd>[];
+    if (isV2) {
+      final rawAds = _list(json['ads'], '$path.ads');
+      if (rawAds.length > 1) {
+        throw FormatException('$path.ads allows at most one display-only ad.');
+      }
+      for (var index = 0; index < rawAds.length; index++) {
+        final ad = PageAd.fromJson(
+          _map(rawAds[index], '$path.ads[$index]'),
+          '$path.ads[$index]',
+          canvas,
+        );
+        if (ad.rect.area > canvas.width * canvas.height * 0.15) {
+          throw FormatException('$path.ads[$index] exceeds 15% page area.');
+        }
+        if (placements.any((item) => item.rect.overlaps(ad.rect)) ||
+            placements.any(
+              (item) => item.hitRegions.any(
+                (region) => region.rect.overlaps(ad.rect),
+              ),
+            )) {
+          throw FormatException(
+            '$path.ads[$index] overlaps editorial content.',
+          );
+        }
+        ads.add(ad);
+      }
     }
     return NewspaperPage(
       id: _string(json['id'], '$path.id'),
@@ -361,6 +472,8 @@ final class NewspaperPage {
         '$path.template',
       ),
       placements: List.unmodifiable(placements),
+      physicalProfile: physicalProfile,
+      ads: List.unmodifiable(ads),
     );
   }
 
@@ -369,11 +482,119 @@ final class NewspaperPage {
     'order': order,
     'label': label,
     'section': section,
+    if (physicalProfile != null) 'physical_profile': physicalProfile!.toJson(),
     'canvas': canvas.toJson(),
     'template': template.toJson(),
     'placements': placements
         .map((placement) => placement.toJson())
         .toList(growable: false),
+    if (physicalProfile != null)
+      'ads': ads.map((ad) => ad.toJson()).toList(growable: false),
+  };
+}
+
+final class PhysicalProfile {
+  const PhysicalProfile({
+    required this.version,
+    required this.widthMm,
+    required this.heightMm,
+    required this.logicalUnitsPerMm,
+  });
+
+  final String version;
+  final double widthMm;
+  final double heightMm;
+  final double logicalUnitsPerMm;
+
+  factory PhysicalProfile.fromJson(Map<String, Object?> json, String path) {
+    _expectKeys(json, path, {
+      'version',
+      'width_mm',
+      'height_mm',
+      'logical_units_per_mm',
+    });
+    final profile = PhysicalProfile(
+      version: _string(json['version'], '$path.version'),
+      widthMm: _positiveNumber(json['width_mm'], '$path.width_mm'),
+      heightMm: _positiveNumber(json['height_mm'], '$path.height_mm'),
+      logicalUnitsPerMm: _positiveNumber(
+        json['logical_units_per_mm'],
+        '$path.logical_units_per_mm',
+      ),
+    );
+    if (profile.version != 'gazet-e.physical-profile.350x500.v1' ||
+        profile.widthMm != 350 ||
+        profile.heightMm != 500 ||
+        profile.logicalUnitsPerMm != 2) {
+      throw FormatException('$path must identify the 350×500 mm v1 profile.');
+    }
+    return profile;
+  }
+
+  Map<String, Object?> toJson() => {
+    'version': version,
+    'width_mm': widthMm,
+    'height_mm': heightMm,
+    'logical_units_per_mm': logicalUnitsPerMm,
+  };
+}
+
+final class PageAd {
+  const PageAd({
+    required this.id,
+    required this.creativeId,
+    required this.label,
+    required this.headline,
+    required this.body,
+    required this.rect,
+  });
+
+  final String id;
+  final String creativeId;
+  final String label;
+  final String headline;
+  final String body;
+  final RectSpec rect;
+
+  factory PageAd.fromJson(
+    Map<String, Object?> json,
+    String path,
+    CanvasSpec canvas,
+  ) {
+    _expectKeys(json, path, {
+      'id',
+      'creative_id',
+      'label',
+      'headline',
+      'body',
+      'rect',
+    });
+    final label = _string(json['label'], '$path.label');
+    if (label != 'REKLAM') {
+      throw FormatException('$path.label must be "REKLAM".');
+    }
+    final rect = RectSpec.fromJson(
+      _map(json['rect'], '$path.rect'),
+      '$path.rect',
+    );
+    rect.validateInside(canvas, '$path.rect');
+    return PageAd(
+      id: _string(json['id'], '$path.id'),
+      creativeId: _string(json['creative_id'], '$path.creative_id'),
+      label: label,
+      headline: _string(json['headline'], '$path.headline'),
+      body: _string(json['body'], '$path.body'),
+      rect: rect,
+    );
+  }
+
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'creative_id': creativeId,
+    'label': label,
+    'headline': headline,
+    'body': body,
+    'rect': rect.toJson(),
   };
 }
 
@@ -575,6 +796,21 @@ final class RectSpec {
   final double height;
 
   Rect get rect => Rect.fromLTWH(x, y, width, height);
+  double get area => width * height;
+
+  bool overlaps(RectSpec other) =>
+      x < other.x + other.width &&
+      other.x < x + width &&
+      y < other.y + other.height &&
+      other.y < y + height;
+
+  bool containsEvery(List<HitRegion> regions) => regions.every(
+    (region) =>
+        region.rect.x >= x &&
+        region.rect.y >= y &&
+        region.rect.x + region.rect.width <= x + width &&
+        region.rect.y + region.rect.height <= y + height,
+  );
 
   factory RectSpec.fromJson(Map<String, Object?> json, String path) {
     _expectKeys(json, path, {'x', 'y', 'width', 'height'});
@@ -615,6 +851,8 @@ final class Article {
     required this.sources,
     required this.visual,
     required this.cache,
+    this.feedExcerpt,
+    this.sourceOnly = false,
   });
 
   final String id;
@@ -624,6 +862,8 @@ final class Article {
   final String dek;
   final String summary;
   final List<ReadingBlock> readingBlocks;
+  final String? feedExcerpt;
+  final bool sourceOnly;
   final String primarySourceId;
   final List<ArticleSource> sources;
   final EditorialVisual visual;
@@ -640,20 +880,37 @@ final class Article {
     String path, {
     EditionAssetPathResolver? assetResolver,
     EditionAssetBytesResolver? assetBytesResolver,
+    required bool isV2,
   }) {
-    _expectKeys(json, path, {
-      'id',
-      'cluster_id',
-      'content_version',
-      'headline',
-      'dek',
-      'summary',
-      'reading_body',
-      'primary_source_id',
-      'sources',
-      'visual',
-      'cache',
-    });
+    _expectKeys(
+      json,
+      path,
+      isV2
+          ? {
+              'id',
+              'cluster_id',
+              'content_version',
+              'headline',
+              'primary_source_id',
+              'sources',
+              'visual',
+              'cache',
+            }
+          : {
+              'id',
+              'cluster_id',
+              'content_version',
+              'headline',
+              'dek',
+              'summary',
+              'reading_body',
+              'primary_source_id',
+              'sources',
+              'visual',
+              'cache',
+            },
+      optional: isV2 ? {'feed_excerpt'} : const {},
+    );
     final id = _string(json['id'], '$path.id');
     final clusterId = _string(json['cluster_id'], '$path.cluster_id');
     final contentVersion = _sha256(
@@ -695,8 +952,10 @@ final class Article {
       );
     }
 
-    final rawBody = _list(json['reading_body'], '$path.reading_body');
-    if (rawBody.isEmpty) {
+    final rawBody = isV2
+        ? const <Object?>[]
+        : _list(json['reading_body'], '$path.reading_body');
+    if (!isV2 && rawBody.isEmpty) {
       throw FormatException('$path.reading_body must not be empty.');
     }
     final readingBlocks = <ReadingBlock>[];
@@ -709,14 +968,24 @@ final class Article {
       );
     }
 
+    final rawExcerpt = json['feed_excerpt'];
+    if (isV2 && rawExcerpt != null && rawExcerpt is! String) {
+      throw FormatException('$path.feed_excerpt must be a string.');
+    }
+    final feedExcerpt = rawExcerpt as String?;
+    if (feedExcerpt != null && feedExcerpt.length > 1200) {
+      throw FormatException('$path.feed_excerpt exceeds 1200 characters.');
+    }
     return Article(
       id: id,
       clusterId: clusterId,
       contentVersion: contentVersion,
       headline: _string(json['headline'], '$path.headline'),
-      dek: _string(json['dek'], '$path.dek'),
-      summary: _string(json['summary'], '$path.summary'),
+      dek: isV2 ? (feedExcerpt ?? '') : _string(json['dek'], '$path.dek'),
+      summary: isV2 ? '' : _string(json['summary'], '$path.summary'),
       readingBlocks: List.unmodifiable(readingBlocks),
+      feedExcerpt: feedExcerpt,
+      sourceOnly: isV2,
       primarySourceId: primarySourceId,
       sources: List.unmodifiable(sources),
       visual: EditorialVisual.fromJson(
@@ -728,6 +997,7 @@ final class Article {
       cache: ArticleCache.fromJson(
         _map(json['cache'], '$path.cache'),
         '$path.cache',
+        isV2: isV2,
       ),
     );
   }
@@ -737,11 +1007,13 @@ final class Article {
     'cluster_id': clusterId,
     'content_version': contentVersion,
     'headline': headline,
-    'dek': dek,
-    'summary': summary,
-    'reading_body': readingBlocks
-        .map((block) => block.toJson())
-        .toList(growable: false),
+    if (sourceOnly && feedExcerpt != null) 'feed_excerpt': feedExcerpt,
+    if (!sourceOnly) 'dek': dek,
+    if (!sourceOnly) 'summary': summary,
+    if (!sourceOnly)
+      'reading_body': readingBlocks
+          .map((block) => block.toJson())
+          .toList(growable: false),
     'primary_source_id': primarySourceId,
     'sources': sources.map((source) => source.toJson()).toList(growable: false),
     'visual': visual.toJson(),
@@ -964,15 +1236,25 @@ final class VisualProvenance {
 }
 
 final class ArticleCache {
-  const ArticleCache({required this.summaryKey, required this.visualBriefKey});
+  const ArticleCache({this.summaryKey, required this.visualBriefKey});
 
-  final String summaryKey;
+  final String? summaryKey;
   final String visualBriefKey;
 
-  factory ArticleCache.fromJson(Map<String, Object?> json, String path) {
-    _expectKeys(json, path, {'summary_key', 'visual_brief_key'});
+  factory ArticleCache.fromJson(
+    Map<String, Object?> json,
+    String path, {
+    required bool isV2,
+  }) {
+    _expectKeys(
+      json,
+      path,
+      isV2 ? {'visual_brief_key'} : {'summary_key', 'visual_brief_key'},
+    );
     return ArticleCache(
-      summaryKey: _sha256(json['summary_key'], '$path.summary_key'),
+      summaryKey: isV2
+          ? null
+          : _sha256(json['summary_key'], '$path.summary_key'),
       visualBriefKey: _sha256(
         json['visual_brief_key'],
         '$path.visual_brief_key',
@@ -981,7 +1263,7 @@ final class ArticleCache {
   }
 
   Map<String, Object?> toJson() => {
-    'summary_key': summaryKey,
+    if (summaryKey != null) 'summary_key': summaryKey,
     'visual_brief_key': visualBriefKey,
   };
 }

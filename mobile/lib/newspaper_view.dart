@@ -16,11 +16,13 @@ class NewspaperView extends StatelessWidget {
   const NewspaperView({
     required this.session,
     required this.sourceLauncher,
+    this.onPrepareNewEdition,
     super.key,
   });
 
   final EditionSession session;
   final SourceLauncher sourceLauncher;
+  final Future<void> Function()? onPrepareNewEdition;
 
   @override
   Widget build(BuildContext context) {
@@ -43,12 +45,18 @@ class NewspaperView extends StatelessWidget {
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
             ),
             Text(
-              'Offline reader proof',
+              '350 × 500 mm sabit baskı',
               style: TextStyle(fontSize: 11, color: Color(0xFFB8CEDA)),
             ),
           ],
         ),
         actions: [
+          IconButton(
+            key: const Key('prepare-new-edition'),
+            onPressed: onPrepareNewEdition,
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Yeni baskı hazırla',
+          ),
           Semantics(
             label: 'Yakınlaştırmayı sıfırla',
             button: true,
@@ -338,6 +346,11 @@ class NewspaperCanvas extends StatelessWidget {
                   article: edition.articleById(placement.articleId),
                 ),
               ),
+            for (final ad in page.ads)
+              Positioned.fromRect(
+                rect: ad.rect.rect,
+                child: PageAdView(ad: ad),
+              ),
             for (final placement in page.placements)
               for (final region in placement.hitRegions)
                 Positioned.fromRect(
@@ -411,11 +424,12 @@ class _Masthead extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final physicalV2 = page.physicalProfile != null;
     return Positioned(
-      left: 40,
-      top: 24,
-      right: 40,
-      height: 132,
+      left: physicalV2 ? 24 : 40,
+      top: physicalV2 ? 16 : 24,
+      right: physicalV2 ? 24 : 40,
+      height: physicalV2 ? 96 : 132,
       child: Column(
         children: [
           Row(
@@ -428,11 +442,10 @@ class _Masthead extends StatelessWidget {
                   style: const TextStyle(
                     color: inkColor,
                     fontFamily: 'serif',
-                    fontSize: 76,
                     height: 0.92,
                     fontWeight: FontWeight.w900,
                     letterSpacing: -4,
-                  ),
+                  ).copyWith(fontSize: physicalV2 ? 52 : 76),
                 ),
               ),
               Column(
@@ -441,18 +454,18 @@ class _Masthead extends StatelessWidget {
                   Text(
                     page.label.toUpperCase(),
                     key: Key('page-label-${page.id}'),
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: coralColor,
-                      fontSize: 17,
+                      fontSize: physicalV2 ? 13 : 17,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 1.4,
                     ),
                   ),
                   Text(
                     page.section.toUpperCase(),
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: inkColor,
-                      fontSize: 12,
+                      fontSize: physicalV2 ? 10 : 12,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -460,25 +473,31 @@ class _Masthead extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          Container(height: 5, color: inkColor),
-          const SizedBox(height: 5),
+          SizedBox(height: physicalV2 ? 4 : 10),
+          Container(height: physicalV2 ? 3 : 5, color: inkColor),
+          SizedBox(height: physicalV2 ? 3 : 5),
           Row(
             children: [
-              Text(
-                edition.title,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
+              Expanded(
+                child: Text(
+                  edition.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: physicalV2 ? 10 : 13,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
-              const Spacer(),
+              const SizedBox(width: 12),
               Text(
-                hasVerifiedRemoteAssets
+                physicalV2
+                    ? 'AI EDİTORYAL GÖRSELLER'
+                    : hasVerifiedRemoteAssets
                     ? 'DOĞRULANMIŞ AI EDİTORYAL GÖRSELLER'
                     : 'KAVRAMSAL GÖRSELLER • OFFLINE FIXTURE',
-                style: const TextStyle(
-                  fontSize: 11,
+                style: TextStyle(
+                  fontSize: physicalV2 ? 9 : 11,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -543,7 +562,7 @@ class _StoryBlock extends StatelessWidget {
             Expanded(
               flex: isBrief ? 1 : 2,
               child: Text(
-                article.dek,
+                article.feedExcerpt ?? article.dek,
                 maxLines: isBrief ? 5 : 3,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -573,6 +592,66 @@ class _StoryBlock extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class PageAdView extends StatelessWidget {
+  const PageAdView({required this.ad, super.key});
+
+  final PageAd ad;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      key: Key('page-ad-${ad.id}'),
+      container: true,
+      label: '${ad.label}: ${ad.headline}. ${ad.body}',
+      child: ExcludeSemantics(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: const Color(0xFFE7E2D7),
+            border: Border.all(color: inkColor, width: 2),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            child: Row(
+              children: [
+                Text(
+                  ad.label,
+                  style: const TextStyle(
+                    color: coralColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        ad.headline,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w900),
+                      ),
+                      Text(
+                        ad.body,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

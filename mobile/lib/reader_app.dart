@@ -11,7 +11,7 @@ import 'newspaper_view.dart';
 import 'reading_view.dart';
 import 'source_launcher.dart';
 
-class ReaderProofApp extends StatefulWidget {
+class ReaderProofApp extends StatelessWidget {
   const ReaderProofApp({
     super.key,
     this.edition,
@@ -26,10 +26,47 @@ class ReaderProofApp extends StatefulWidget {
   final SourceLauncher sourceLauncher;
 
   @override
-  State<ReaderProofApp> createState() => _ReaderProofAppState();
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      restorationScopeId: 'gazet-e-app',
+      title: 'Gazet+E',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF153A52),
+          brightness: Brightness.light,
+        ),
+        scaffoldBackgroundColor: const Color(0xFFF2EEE4),
+        useMaterial3: true,
+      ),
+      home: _ReaderRoot(
+        edition: edition,
+        repository: repository,
+        generationController: generationController,
+        sourceLauncher: sourceLauncher,
+      ),
+    );
+  }
 }
 
-class _ReaderProofAppState extends State<ReaderProofApp> with RestorationMixin {
+class _ReaderRoot extends StatefulWidget {
+  const _ReaderRoot({
+    required this.edition,
+    required this.repository,
+    required this.generationController,
+    required this.sourceLauncher,
+  });
+
+  final EditionDocument? edition;
+  final EditionRepository? repository;
+  final EditionGenerationController? generationController;
+  final SourceLauncher sourceLauncher;
+
+  @override
+  State<_ReaderRoot> createState() => _ReaderRootState();
+}
+
+class _ReaderRootState extends State<_ReaderRoot> with RestorationMixin {
   EditionSession? _session;
   Object? _loadError;
   final RestorableStringN _restoredJobId = RestorableStringN(null);
@@ -37,7 +74,8 @@ class _ReaderProofAppState extends State<ReaderProofApp> with RestorationMixin {
   bool _restorationRegistered = false;
 
   @override
-  String? get restorationId => 'gazet-e-generation';
+  String? get restorationId =>
+      widget.generationController == null ? null : 'gazet-e-generation';
 
   @override
   void restoreState(RestorationBucket? oldBucket, bool initialRestore) {
@@ -74,6 +112,9 @@ class _ReaderProofAppState extends State<ReaderProofApp> with RestorationMixin {
     }
     final edition = controller?.edition;
     if (edition == null || _session?.edition.edition.id == edition.edition.id) {
+      if (mounted) {
+        setState(() {});
+      }
       return;
     }
     final previous = _session;
@@ -110,20 +151,7 @@ class _ReaderProofAppState extends State<ReaderProofApp> with RestorationMixin {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      restorationScopeId: 'gazet-e-app',
-      title: 'Gazet+E Reader Proof',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF153A52),
-          brightness: Brightness.light,
-        ),
-        scaffoldBackgroundColor: const Color(0xFFF2EEE4),
-        useMaterial3: true,
-      ),
-      home: _buildHome(),
-    );
+    return _buildHome();
   }
 
   Widget _buildHome() {
@@ -133,6 +161,9 @@ class _ReaderProofAppState extends State<ReaderProofApp> with RestorationMixin {
         session: session,
         sourceLauncher: widget.sourceLauncher,
         reducedEdition: widget.generationController?.isReducedEdition ?? false,
+        onPrepareNewEdition: widget.generationController?.canPrepare == true
+            ? widget.generationController!.prepare
+            : null,
       );
     }
     if (_loadError != null) {
@@ -226,7 +257,7 @@ class _GenerationHome extends StatelessWidget {
     RemoteJobState.requested => 'Baskı sırası oluşturuldu…',
     RemoteJobState.collecting => 'Haberler toplanıyor…',
     RemoteJobState.selecting => 'Haberler seçiliyor…',
-    RemoteJobState.summarizing => 'Editoryal özetler hazırlanıyor…',
+    RemoteJobState.summarizing => 'Eski baskı kaydı doğrulanıyor…',
     RemoteJobState.illustrating => 'Editoryal görseller hazırlanıyor…',
     RemoteJobState.layingOut => 'Gazete sayfaları yerleştiriliyor…',
     _ => 'Baskı durumu doğrulanıyor…',
@@ -238,12 +269,14 @@ class EditionReader extends StatelessWidget {
     required this.session,
     required this.sourceLauncher,
     this.reducedEdition = false,
+    this.onPrepareNewEdition,
     super.key,
   });
 
   final EditionSession session;
   final SourceLauncher sourceLauncher;
   final bool reducedEdition;
+  final Future<void> Function()? onPrepareNewEdition;
 
   @override
   Widget build(BuildContext context) {
@@ -274,6 +307,7 @@ class EditionReader extends StatelessWidget {
                         key: const Key('newspaper-mode'),
                         session: session,
                         sourceLauncher: sourceLauncher,
+                        onPrepareNewEdition: onPrepareNewEdition,
                       )
                     : ReadingView(
                         key: const Key('reading-mode'),

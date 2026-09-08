@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import ipaddress
 import json
 import os
 import time
@@ -43,31 +44,41 @@ def postgres_dsn() -> str:
             "GAZETE_TEST_POSTGRES_DSN must target the disposable local Q05 "
             "PostgreSQL database; this integration gate may not be skipped."
         )
-    with psycopg.connect(dsn) as connection:
-        identity = connection.execute(
-            "SELECT current_database(), current_user, inet_server_addr()"
-        ).fetchone()
-    assert identity[0] == "gazete_q05_test"
-    assert identity[1] == "gazete_q05_test"
-    assert str(identity[2]) in {"127.0.0.1", "::1"}
+    _assert_dedicated_postgres(dsn)
     return dsn
 
 
 @pytest.fixture
 def store(postgres_dsn: str) -> Iterator[EditionJobStore]:
+    _assert_dedicated_postgres(postgres_dsn)
     result = EditionJobStore(postgres_dsn)
     result.initialize_schema()
+    _assert_dedicated_postgres(postgres_dsn)
     with psycopg.connect(postgres_dsn) as connection:
         connection.execute("TRUNCATE edition_jobs, editions CASCADE")
     yield result
+    _assert_dedicated_postgres(postgres_dsn)
     with psycopg.connect(postgres_dsn) as connection:
         connection.execute("TRUNCATE edition_jobs, editions CASCADE")
+
+
+def _assert_dedicated_postgres(dsn: str) -> None:
+    with psycopg.connect(dsn) as connection:
+        identity = connection.execute(
+            "SELECT current_database(), current_user, inet_server_addr()"
+        ).fetchone()
+    if identity is None or (
+        identity[0] != "gazete_q05_test"
+        or identity[1] != "gazete_q05_test"
+        or not ipaddress.ip_interface(str(identity[2])).ip.is_loopback
+    ):
+        raise RuntimeError("Refusing mutation outside dedicated Q05 test database")
 
 
 @pytest.fixture
 def request_data() -> EditionRequest:
     return EditionRequest(
-        request_version="gazet-e.edition-request.v1",
+        request_version="gazet-e.edition-request.v2",
         locale="tr-TR",
         timezone="Europe/Istanbul",
     )
@@ -117,19 +128,19 @@ def _successful_executors(
 def test_request_contract_rejects_unknown_fields_versions_and_bad_timezone() -> None:
     with pytest.raises(ValidationError):
         EditionRequest(
-            request_version="gazet-e.edition-request.v2",
+            request_version="gazet-e.edition-request.v3",
             locale="tr-TR",
             timezone="Europe/Istanbul",
         )
     with pytest.raises(ValidationError):
         EditionRequest(
-            request_version="gazet-e.edition-request.v1",
+            request_version="gazet-e.edition-request.v2",
             locale="turkish",
             timezone="Europe/Istanbul",
         )
     with pytest.raises(ValidationError):
         EditionRequest(
-            request_version="gazet-e.edition-request.v1",
+            request_version="gazet-e.edition-request.v2",
             locale="tr-TR",
             timezone="Not/AZone",
             provider_key="forbidden",
@@ -143,6 +154,9 @@ def test_lifecycle_transition_whitelist_is_fail_closed() -> None:
     validate_transition(JobState.FAILED, JobState.REQUESTED, system_retry=True)
     with pytest.raises(InvalidTransition):
         validate_transition(JobState.REQUESTED, JobState.SELECTING)
+    validate_transition(JobState.SELECTING, JobState.ILLUSTRATING)
+    with pytest.raises(InvalidTransition):
+        validate_transition(JobState.SELECTING, JobState.SUMMARIZING)
     with pytest.raises(InvalidTransition):
         validate_transition(JobState.READY, JobState.CANCELLED)
     with pytest.raises(InvalidTransition):
@@ -394,6 +408,7 @@ def test_worker_losing_lease_does_not_mutate_new_owners_durable_truth(
     with ThreadPoolExecutor(max_workers=1) as pool:
         future = pool.submit(worker.run_one)
         assert stage_started.wait(timeout=5)
+        _assert_dedicated_postgres(postgres_dsn)
         with psycopg.connect(postgres_dsn) as connection:
             connection.execute(
                 """
@@ -444,6 +459,7 @@ def test_expired_lease_recovers_same_checkpoint_with_incremented_attempt(
     created = _create(store, request_data)
     first = store.claim_job("worker-a")
     assert first is not None and first.attempt == 1
+    _assert_dedicated_postgres(postgres_dsn)
     with psycopg.connect(postgres_dsn) as connection:
         connection.execute(
             "UPDATE edition_jobs SET lease_expires_at = clock_timestamp() - "
@@ -534,7 +550,6 @@ def test_worker_uses_injected_stages_and_publishes_valid_immutable_edition(
     assert calls == [
         JobState.COLLECTING,
         JobState.SELECTING,
-        JobState.SUMMARIZING,
         JobState.ILLUSTRATING,
         JobState.LAYING_OUT,
     ]

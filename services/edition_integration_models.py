@@ -10,12 +10,11 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-INTEGRATION_POLICY_VERSION = "gazet-e.edition-integration.v1"
-COLLECTION_MANIFEST_VERSION = "gazet-e.collection-manifest.v1"
-SELECTION_MANIFEST_VERSION = "gazet-e.selection-manifest.v1"
-SUMMARY_MANIFEST_VERSION = "gazet-e.summary-manifest.v1"
-VISUAL_MANIFEST_VERSION = "gazet-e.visual-manifest.v1"
-ASSEMBLY_MANIFEST_VERSION = "gazet-e.assembly-manifest.v1"
+INTEGRATION_POLICY_VERSION = "gazet-e.edition-integration.v2"
+COLLECTION_MANIFEST_VERSION = "gazet-e.collection-manifest.v2"
+SELECTION_MANIFEST_VERSION = "gazet-e.selection-manifest.v2"
+VISUAL_MANIFEST_VERSION = "gazet-e.visual-manifest.v2"
+ASSEMBLY_MANIFEST_VERSION = "gazet-e.assembly-manifest.v2"
 MAX_MANIFEST_BYTES = 2 * 1024 * 1024
 
 _FORBIDDEN_KEYS = frozenset(
@@ -48,12 +47,16 @@ class IntegrationPolicy(BaseModel):
     version: str = Field(default=INTEGRATION_POLICY_VERSION)
     max_selected_clusters: int = Field(default=4, ge=1, le=4)
     max_pages: int = Field(default=2, ge=1, le=2)
-    max_collected_candidates: int = Field(default=40, ge=1, le=120)
+    max_collected_candidates: int = Field(default=120, ge=1, le=120)
     paid_execution_enabled: bool = False
-    max_logical_provider_calls: int = Field(default=24, ge=1, le=24)
-    max_transport_attempts: int = Field(default=48, ge=1, le=48)
+    max_logical_provider_calls: int = Field(default=8, ge=1, le=8)
+    max_transport_attempts: int = Field(default=16, ge=1, le=16)
     max_generated_images: int = Field(default=4, ge=1, le=4)
-    max_estimated_cost_usd: float = Field(default=0.48, gt=0, le=0.48)
+    max_estimated_cost_usd: float = Field(default=0.32, gt=0, le=0.32)
+    budget_scope_id: str = Field(
+        default="gazet-e.q10.local-image-budget.v1",
+        pattern=r"^[A-Za-z0-9_.:-]{1,96}$",
+    )
 
     @model_validator(mode="after")
     def validate_finite_budget(self) -> IntegrationPolicy:

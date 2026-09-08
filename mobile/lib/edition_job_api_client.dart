@@ -1,14 +1,19 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 
 import 'edition.dart';
 
 const _maxJsonBytes = 2 * 1024 * 1024;
 const _maxAssetBytes = 8 * 1024 * 1024;
+const _maxAggregateAssetBytes = 32 * 1024 * 1024;
+const _connectionDeadline = Duration(seconds: 10);
+const _responseDeadline = Duration(seconds: 30);
 
 enum RemoteJobState {
   requested,
@@ -97,8 +102,10 @@ final class HttpEditionJobGateway implements EditionJobGateway {
     required Uri origin,
     bool allowDebugLoopback = false,
     HttpClient? client,
-  }) : _origin = _validateOrigin(origin, allowDebugLoopback),
-       _client = client ?? HttpClient();
+  }) : _origin = _validateOrigin(origin, allowDebugLoopback && kDebugMode),
+       _client = client ?? HttpClient() {
+    _client.connectionTimeout = _connectionDeadline;
+  }
 
   final Uri _origin;
   final HttpClient _client;
@@ -115,7 +122,7 @@ final class HttpEditionJobGateway implements EditionJobGateway {
       expectedStatuses: const {202},
       headers: {'Idempotency-Key': idempotencyKey},
       body: {
-        'request_version': 'gazet-e.edition-request.v1',
+        'request_version': 'gazet-e.edition-request.v2',
         'locale': locale,
         'timezone': timezone,
       },
@@ -165,11 +172,23 @@ final class HttpEditionJobGateway implements EditionJobGateway {
       '/v1/editions/${Uri.encodeComponent(editionId)}',
       expectedStatuses: const {200},
     );
+    if (document['contract_version'] != activeContractVersion) {
+      throw const FormatException(
+        'Ready edition must use the active v2 contract.',
+      );
+    }
+    final metadata = document['edition'];
+    if (metadata is! Map<String, Object?> || metadata['id'] != editionId) {
+      throw const FormatException(
+        'Ready edition identity does not match request.',
+      );
+    }
     final articleList = document['articles'];
     if (articleList is! List<Object?> || articleList.isEmpty) {
       throw const FormatException('Ready edition articles are unavailable.');
     }
     final resolved = <String, Uint8List>{};
+    var aggregateBytes = 0;
     for (final rawArticle in articleList) {
       if (rawArticle is! Map<String, Object?>) {
         throw const FormatException('Ready edition article is malformed.');
@@ -192,17 +211,30 @@ final class HttpEditionJobGateway implements EditionJobGateway {
       if (resolved.containsKey(assetId)) {
         continue;
       }
-      resolved[assetId] = await _asset(
+      final bytes = await _asset(
         editionId: editionId,
         assetId: assetId,
         width: width,
         height: height,
       );
+      aggregateBytes += bytes.length;
+      if (aggregateBytes > _maxAggregateAssetBytes) {
+        throw const FormatException(
+          'Edition assets exceed aggregate size bound.',
+        );
+      }
+      resolved[assetId] = bytes;
     }
-    return EditionDocument.fromJson(
+    final parsed = EditionDocument.fromJson(
       document,
       assetBytesResolver: resolved.__lookup,
     );
+    if (parsed.edition.id != editionId) {
+      throw const FormatException(
+        'Parsed edition identity does not match request.',
+      );
+    }
+    return parsed;
   }
 
   Future<Map<String, Object?>> _json(
@@ -213,14 +245,30 @@ final class HttpEditionJobGateway implements EditionJobGateway {
     Map<String, Object?>? body,
   }) async {
     final request = await _client.openUrl(method, _resolve(path));
+    request.followRedirects = false;
     request.headers.set(HttpHeaders.acceptHeader, 'application/json');
     headers.forEach(request.headers.set);
     if (body != null) {
       request.headers.contentType = ContentType.json;
       request.write(jsonEncode(body));
     }
-    final response = await request.close();
-    final bytes = await _readBounded(response, _maxJsonBytes);
+    final HttpClientResponse response;
+    try {
+      response = await request.close().timeout(_responseDeadline);
+    } on TimeoutException {
+      request.abort();
+      throw const HttpException('Edition service deadline exceeded.');
+    }
+    final Uint8List bytes;
+    try {
+      bytes = await _readBounded(
+        response,
+        _maxJsonBytes,
+      ).timeout(_responseDeadline);
+    } on TimeoutException {
+      request.abort();
+      throw const HttpException('Edition response deadline exceeded.');
+    }
     if (!expectedStatuses.contains(response.statusCode)) {
       throw HttpException('Edition service returned a bounded error status.');
     }
@@ -243,12 +291,34 @@ final class HttpEditionJobGateway implements EditionJobGateway {
         '/v1/editions/${Uri.encodeComponent(editionId)}/assets/$assetHex',
       ),
     );
+    request.followRedirects = false;
     request.headers.set(HttpHeaders.acceptHeader, 'image/webp');
-    final response = await request.close();
-    final bytes = await _readBounded(response, _maxAssetBytes);
+    final HttpClientResponse response;
+    try {
+      response = await request.close().timeout(_responseDeadline);
+    } on TimeoutException {
+      request.abort();
+      throw const HttpException('Edition asset deadline exceeded.');
+    }
     if (response.statusCode != 200 ||
         response.headers.contentType?.mimeType != 'image/webp') {
+      request.abort();
       throw HttpException('Edition asset is unavailable.');
+    }
+    final Uint8List bytes;
+    try {
+      bytes = await _readBounded(
+        response,
+        _maxAssetBytes,
+      ).timeout(_responseDeadline);
+    } on TimeoutException {
+      request.abort();
+      throw const HttpException('Edition asset response deadline exceeded.');
+    }
+    if (bytes.length < 12 ||
+        ascii.decode(bytes.sublist(0, 4), allowInvalid: true) != 'RIFF' ||
+        ascii.decode(bytes.sublist(8, 12), allowInvalid: true) != 'WEBP') {
+      throw const FormatException('Edition asset is not a WebP payload.');
     }
     if ('sha256:${sha256.convert(bytes)}' != assetId) {
       throw const FormatException('Edition asset integrity check failed.');
@@ -269,7 +339,17 @@ final class HttpEditionJobGateway implements EditionJobGateway {
     return bytes;
   }
 
-  Uri _resolve(String path) => _origin.resolve(path);
+  Uri _resolve(String path) {
+    final resolved = _origin.resolve(path);
+    if (resolved.scheme != _origin.scheme ||
+        resolved.host != _origin.host ||
+        resolved.port != _origin.port) {
+      throw const FormatException(
+        'Edition request escaped its configured origin.',
+      );
+    }
+    return resolved;
+  }
 }
 
 extension on Map<String, Uint8List> {
@@ -299,7 +379,7 @@ Uri _validateOrigin(Uri origin, bool allowDebugLoopback) {
   final debugLoopback =
       allowDebugLoopback &&
       origin.scheme == 'http' &&
-      {'127.0.0.1', 'localhost', '10.0.2.2'}.contains(origin.host) &&
+      {'127.0.0.1', 'localhost'}.contains(origin.host) &&
       origin.userInfo.isEmpty &&
       !origin.hasQuery &&
       !origin.hasFragment;

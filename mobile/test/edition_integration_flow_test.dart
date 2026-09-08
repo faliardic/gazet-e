@@ -15,7 +15,9 @@ void main() {
       final gateway = _FakeGateway(
         statuses: [
           _status(RemoteJobState.requested),
-          _status(RemoteJobState.summarizing),
+          _status(RemoteJobState.collecting),
+          _status(RemoteJobState.selecting),
+          _status(RemoteJobState.illustrating),
           _status(RemoteJobState.ready, editionId: edition.edition.id),
         ],
         edition: edition,
@@ -32,7 +34,7 @@ void main() {
       expect(controller.edition, same(edition));
       expect(gateway.createCalls, 1);
       expect(gateway.keys, ['stable-mobile-key']);
-      expect(gateway.getCalls, 2);
+      expect(gateway.getCalls, 4);
       expect(gateway.loadCalls, 1);
       expect(gateway.reportCalls, 1);
     },
@@ -64,6 +66,40 @@ void main() {
     expect(gateway.createCalls, 1);
     expect(controller.state, EditionGenerationState.ready);
   });
+
+  test(
+    'new edition preserves the immutable current edition until success',
+    () async {
+      final edition = await _fixture();
+      final pollingDelay = Completer<void>();
+      final gateway = _FakeGateway(
+        statuses: [
+          _status(RemoteJobState.ready, editionId: edition.edition.id),
+          _status(RemoteJobState.requested),
+          _status(RemoteJobState.ready, editionId: edition.edition.id),
+        ],
+        edition: edition,
+      );
+      final controller = EditionGenerationController(
+        gateway: gateway,
+        delay: (_) => pollingDelay.future,
+        idempotencyKeyFactory: () => 'new-edition-${gateway.createCalls}',
+      );
+      addTearDown(controller.dispose);
+
+      await controller.prepare();
+      final current = controller.edition;
+      final replacement = controller.prepare();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(controller.state, EditionGenerationState.tracking);
+      expect(controller.edition, same(current));
+      expect(gateway.keys, ['new-edition-0', 'new-edition-1']);
+      pollingDelay.complete();
+      await replacement;
+      expect(controller.state, EditionGenerationState.ready);
+    },
+  );
 
   test('ambiguous create retry reuses the original idempotency key', () async {
     final edition = await _fixture();
@@ -116,6 +152,30 @@ void main() {
     },
   );
 
+  test('disposed controller ignores an in-flight create response', () async {
+    final edition = await _fixture();
+    final pending = Completer<RemoteJobStatus>();
+    final gateway = _FakeGateway(
+      statuses: [],
+      edition: edition,
+      pendingCreate: pending,
+    );
+    final controller = EditionGenerationController(
+      gateway: gateway,
+      delay: (_) async {},
+    );
+
+    final preparing = controller.prepare();
+    controller.dispose();
+    pending.complete(
+      _status(RemoteJobState.ready, editionId: edition.edition.id),
+    );
+    await preparing;
+
+    expect(gateway.loadCalls, 0);
+    expect(gateway.reportCalls, 0);
+  });
+
   test(
     'restored job identity resumes without creating a new request',
     () async {
@@ -150,7 +210,9 @@ void main() {
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       addTearDown(server.close);
       final fixture =
-          jsonDecode(await File('assets/fixtures/edition.json').readAsString())
+          jsonDecode(
+                await File('assets/fixtures/edition.v2.json').readAsString(),
+              )
               as Map<String, Object?>;
       const hash =
           'sha256:c5e8a8c2bb2f1d7b845abcbd3b215589114f636d8eaf3b4261213d8951c4fdf4';
@@ -179,7 +241,7 @@ void main() {
         allowDebugLoopback: true,
       );
 
-      final document = await gateway.loadReadyEdition('edition-id');
+      final document = await gateway.loadReadyEdition('fixture-edition-v2');
 
       expect(document.articles.values.first.visual.assetBytes, webp);
       expect(jsonEncode(document.toJson()), isNot(contains('image_bytes')));
@@ -189,11 +251,60 @@ void main() {
       );
       servedAsset[servedAsset.length - 1] ^= 1;
       await expectLater(
-        gateway.loadReadyEdition('edition-id'),
+        gateway.loadReadyEdition('fixture-edition-v2'),
         throwsFormatException,
       );
     },
   );
+
+  test('HTTP create uses v2 and refuses redirects', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(server.close);
+    final received = Completer<Map<String, Object?>>();
+    server.listen((request) async {
+      if (request.uri.path == '/v1/edition-jobs' && request.method == 'POST') {
+        final body =
+            jsonDecode(await utf8.decoder.bind(request).join())
+                as Map<String, Object?>;
+        received.complete(body);
+        request.response.statusCode = 202;
+        request.response.headers.contentType = ContentType.json;
+        request.response.write(
+          jsonEncode({
+            'job_id': 'job-v2',
+            'state': 'requested',
+            'edition_id': null,
+          }),
+        );
+      } else {
+        request.response.statusCode = 302;
+        request.response.headers.set(
+          HttpHeaders.locationHeader,
+          'https://other.example.test/redirect',
+        );
+      }
+      await request.response.close();
+    });
+    final gateway = HttpEditionJobGateway(
+      origin: Uri.parse('http://127.0.0.1:${server.port}'),
+      allowDebugLoopback: true,
+    );
+
+    final status = await gateway.createJob(
+      idempotencyKey: 'v2-key',
+      locale: 'tr-TR',
+      timezone: 'Europe/Istanbul',
+    );
+    expect(status.state, RemoteJobState.requested);
+    expect(
+      (await received.future)['request_version'],
+      'gazet-e.edition-request.v2',
+    );
+    await expectLater(
+      gateway.getJob('redirected'),
+      throwsA(isA<HttpException>()),
+    );
+  });
 
   test('HTTP origin rejects public cleartext and user-info', () {
     expect(
@@ -283,11 +394,5 @@ RemoteJobStatus _status(RemoteJobState state, {String? editionId}) =>
     );
 
 Future<EditionDocument> _fixture() async => EditionDocument.parse(
-  await File('assets/fixtures/edition.json').readAsString(),
-  assetResolver: (assetId) => switch (assetId) {
-    'asset_city_signals' => 'assets/images/city-signals.png',
-    'asset_climate_resilience' => 'assets/images/climate-resilience.png',
-    'asset_civic_technology' => 'assets/images/civic-technology.png',
-    _ => null,
-  },
+  await File('assets/fixtures/edition.v2.json').readAsString(),
 );

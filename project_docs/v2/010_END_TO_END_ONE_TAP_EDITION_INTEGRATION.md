@@ -7,13 +7,15 @@ asset delivery and in-page advertising boundary
 
 **Exact base:** `8f55b0aee5f5e623318cdb0d9024af1ca31d5546`
 
-**Current truth:** Q10 remains `ACTIVE`; Q11 remains `QUEUED`. The first Gate A
-implementation at `39de1ae44784b77fca821fe9b161d5a188c35096` is superseded as
-a product direction because it wires Q07 AI-summary output into runtime. Its
-T0/test evidence and the subsequent Gate B G1–G10 review remain historical and
-are not deleted. This authority-sync step changes no production/test code and
-does not claim a corrected Gate A/B PASS. Gate C live and Gate D device/release
-actions remain pending and unauthorized.
+**Current truth:** Q10 remains `ACTIVE`; Q11 remains `QUEUED`. The owner-reset
+production revision replaces the superseded first Gate A direction with active
+`gazet-e.edition-request.v2` / `gazet-e.edition.v2` contracts and an image-only
+AI runtime. Its deterministic backend, isolated PostgreSQL recovery and mobile
+acceptance suites pass locally. Independent review, authorized live operation
+and real-device acceptance remain separate `PENDING` gates; this revision does
+not claim Q10 completion. The first implementation at
+`39de1ae44784b77fca821fe9b161d5a188c35096`, its T0 evidence and its G1–G10
+review remain historical and are not deleted.
 
 ## 1. Revised production lifecycle and AI boundary
 
@@ -24,12 +26,13 @@ requested -> collecting -> selecting -> illustrating
           -> laying_out -> ready | failed | cancelled
 ```
 
-Q10 will retain Q05 idempotency, lease/attempt fencing, heartbeat,
+Q10 retains Q05 idempotency, lease/attempt fencing, heartbeat,
 cancellation, durable checkpoint recovery and immutable publication, while
-removing the `summarizing` product stage through a controlled versioned
-migration. Q07 production files and historical evidence are not deleted, but
-the active worker must not invoke Q07 generation, verifier, repair, prompt or
-summary cache paths.
+removing the `summarizing` product stage from all new v2 jobs. Historical v1
+state decoding remains fail-closed compatibility only. Q07 production files
+and historical evidence are not deleted; the active integration and worker do
+not import or invoke Q07 generation, verifier, repair, prompt or summary-cache
+paths.
 
 AI is used only for Q08 editorial image generation and image safety/semantic
 QA. Visual brief construction remains bounded and deterministic. Text-AI calls
@@ -56,19 +59,20 @@ Missing excerpt remains missing; no AI summary/dek/reading body is generated.
 Okuma Modu is ad-free. Full publisher text is not scraped or republished.
 
 The historical `gazet-e.edition.v1` contract requires fields that no longer
-match this active text/page/ad direction. A versioned successor must be created
-rather than silently overloading v1. It must preserve source/visual identity,
-fail-closed parsing, explicit actions and immutable ready publication while
-adding physical page and ad semantics described below. Existing v1 schema,
-fixture and tests remain historical compatibility evidence until an explicit
-migration authority permits their controlled successor work.
+match this active text/page/ad direction. The active network publication is
+therefore `gazet-e.edition.v2`, not an overload of v1. It preserves
+source/visual identity, fail-closed parsing, explicit source actions and
+immutable ready publication while adding physical page and ad semantics.
+Existing v1 schema, fixture and regression path remain read-only historical
+compatibility evidence.
 
 ## 3. Physical full-page newspaper contract
 
 Gazete Modu uses a versioned initial physical profile:
 
 ```text
-width_mm=350, height_mm=500, fixed logical render scale
+width_mm=350, height_mm=500
+logical_width=700, logical_height=1000, logical_units_per_mm=2
 ```
 
 This is a broadsheet-style reference profile, not a printer/store vendor
@@ -135,40 +139,39 @@ spending. Summary-specific correction work is intentionally stopped.
 No live RSS/OpenAI request, image generation, APK/build/install, device,
 deployment, Ready or merge is authorized by this document.
 
-## 7. Proposed revised production write-set
+## 7. Owner-reset production revision evidence
 
-Paths already inside Issue #24's current implementation allowlist:
+Issue #24 comment `5578611394` authorized the exact production boundary used by
+this revision. The implementation provides:
 
-- `services/edition_integration_*.py`, `services/edition_asset_*.py`;
-- `services/edition_job_api.py`, `services/edition_job_store.py`,
-  `services/edition_job_worker.py`;
-- `tests/test_edition_integration_*.py`, `tests/test_edition_asset_*.py`;
-- `mobile/lib/edition_job_*.dart`, `mobile/lib/edition_api_*.dart`,
-  `mobile/lib/edition_asset_*.dart`, `mobile/lib/edition_generation_*.dart`;
-- `mobile/lib/main.dart`, `mobile/lib/reader_app.dart`,
-  `mobile/lib/newspaper_view.dart`, `mobile/lib/reading_view.dart`;
-- matching `mobile/test/edition_integration_*_test.dart`, job and asset tests;
-- Android debug-loopback manifests/config, safe environment/docs truth files.
+- strict v2 request creation and active lifecycle transitions, while retaining
+  historical v1/summarizing decode only;
+- Q06 ranked facts mapped directly into the bounded Q08 visual fact packet;
+- durable per-operation, per-job and same-authorized-run image exposure with
+  ceilings of four images, eight logical calls, sixteen transport attempts and
+  USD 0.32; unknown remote outcomes retain their full reservation;
+- executor-attempt fencing at dispatch, checkpoint, paid-operation and
+  publication boundaries;
+- a pre-mutation dedicated PostgreSQL/role/loopback/disposable-target guard;
+- deterministic `350×500 mm`, `700×1000` logical physical projection and local
+  display-only ad reservation before editorial projection;
+- a synthetic footer slot at `(70, 900, 560, 80)`, occupying 44,800 of 700,000
+  page units (`6.4%`), with zero editorial/hit-region overlap and a visible
+  `REKLAM` label; an unsuitable page receives no ad;
+- immutable edition-scoped WebP delivery with same-origin, media, dimension,
+  size and SHA-256 validation;
+- v2 mobile parsing/rendering, fixed-page fit/zoom/pan/navigation, ad-free
+  source-excerpt Reading Mode and stale/cancel/dispose/restoration protection.
 
-The owner reset makes the following previously protected paths/purposes
-genuinely necessary, but they require explicit next-step allowlist authority
-before any production/test edit:
+The unchanged Q09 core, Q07 files, Q04 v1 schema/fixture, protected
+gesture/session implementation, provider/model configuration and dependency
+set remain outside this revision. No live provider or RSS call was made.
 
-- `services/edition_job_models.py` and `tests/test_edition_job_service.py` —
-  remove `summarizing` from the active lifecycle while preserving durable
-  compatibility and fail-closed transition tests;
-- a new versioned Q04 schema under `schemas/`, plus
-  `services/edition_job_validation.py` and `mobile/lib/edition.dart` contract
-  updates — source-excerpt/no-AI-text, physical dimensions and ad identity /
-  geometry without rewriting `gazet-e.edition.v1` history;
-- Q04 backend/mobile contract tests for the new version;
-- `mobile/lib/newspaper_view.dart` purpose expansion for bounded in-page ad
-  rendering/hit semantics while preserving protected gestures/session.
-
-No Q06/Q07/Q08/Q09 core, legacy, provider/model, dependency, ad SDK, Q11 or
-external monetization path is proposed. Implementation must not resume until
-ChatGPT reviews this authority sync and grants the exact protected-path
-expansion or selects a narrower compatible contract path.
+Automated acceptance was exercised through fake RSS/image providers, a real
+isolated loopback PostgreSQL cluster and separate worker/API processes. A fresh
+worker resumed durable work without replaying completed or uncertain provider
+operations. Independent review, authorized live operation and real-device
+acceptance are still required before Q10 can become `COMPLETE`.
 
 ## 8. Historical Gate A record — superseded product direction
 

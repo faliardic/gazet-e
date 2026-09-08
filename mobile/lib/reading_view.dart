@@ -57,17 +57,24 @@ class ReadingView extends StatelessWidget {
                       fontWeight: FontWeight.w900,
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    article.dek,
-                    style: TextStyle(
-                      color: inkColor.withValues(alpha: 0.76),
-                      fontSize: 18,
-                      height: 1.35,
-                      fontWeight: FontWeight.w600,
+                  if ((article.feedExcerpt ?? article.dek).isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      article.feedExcerpt ?? article.dek,
+                      key: article.sourceOnly
+                          ? const Key('reading-feed-excerpt')
+                          : null,
+                      style: TextStyle(
+                        color: inkColor.withValues(alpha: 0.76),
+                        fontSize: 18,
+                        height: 1.35,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
+                  ],
                   const SizedBox(height: 18),
+                  _SourceLine(source: article.primarySource),
+                  const Divider(height: 32, color: inkColor),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(3),
                     child: Semantics(
@@ -115,31 +122,31 @@ class ReadingView extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 22),
-                  _SourceLine(source: article.primarySource),
-                  const Divider(height: 32, color: inkColor),
-                  Text(
-                    article.summary,
-                    key: const Key('reading-summary'),
-                    style: const TextStyle(
-                      color: inkColor,
-                      fontFamily: 'serif',
-                      fontSize: 23,
-                      height: 1.42,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  for (final paragraph in article.readingBody) ...[
+                  if (!article.sourceOnly) ...[
+                    const SizedBox(height: 22),
                     Text(
-                      paragraph,
+                      article.summary,
+                      key: const Key('reading-summary'),
                       style: const TextStyle(
                         color: inkColor,
-                        fontSize: 18,
-                        height: 1.58,
+                        fontFamily: 'serif',
+                        fontSize: 23,
+                        height: 1.42,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 18),
+                    for (final paragraph in article.readingBody) ...[
+                      Text(
+                        paragraph,
+                        style: const TextStyle(
+                          color: inkColor,
+                          fontSize: 18,
+                          height: 1.58,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                    ],
                   ],
                   const SizedBox(height: 8),
                   SizedBox(

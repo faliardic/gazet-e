@@ -20,6 +20,7 @@ from services.edition_job_models import (
     FailureStatus,
     JobState,
     JobStatus,
+    REQUEST_VERSION,
     idempotency_identity,
     normalize_idempotency_key,
     validate_transition,
@@ -189,6 +190,16 @@ class EditionJobStore:
             )
             connection.execute(
                 """
+                CREATE INDEX IF NOT EXISTS edition_jobs_runnable_v2_idx
+                ON edition_jobs (created_at, job_id)
+                WHERE state IN (
+                    'requested', 'collecting', 'selecting',
+                    'illustrating', 'laying_out'
+                )
+                """
+            )
+            connection.execute(
+                """
                 CREATE TABLE IF NOT EXISTS edition_integration_runs (
                     job_id TEXT PRIMARY KEY REFERENCES edition_jobs(job_id)
                         ON DELETE CASCADE,
@@ -266,6 +277,8 @@ class EditionJobStore:
             )
 
     def create_job(self, idempotency_key: str | None, request: EditionRequest) -> JobRecord:
+        if request.request_version != REQUEST_VERSION:
+            raise ValueError("Only gazet-e.edition-request.v2 may create a new job.")
         normalized_key = normalize_idempotency_key(idempotency_key)
         key_hash = idempotency_identity(normalized_key)
         request_fingerprint = request.fingerprint()
@@ -327,7 +340,9 @@ class EditionJobStore:
     def ensure_integration_run(
         self,
         job_id: str,
+        worker_id: str,
         *,
+        expected_attempt: int,
         policy_version: str,
         policy_fingerprint: str,
         policy: dict[str, Any],
@@ -336,12 +351,12 @@ class EditionJobStore:
         _safe_version(policy_version)
         _safe_cache_key(policy_fingerprint)
         with self._connect() as connection:
-            row = connection.execute(
-                "SELECT job_id FROM edition_jobs WHERE job_id = %s FOR SHARE",
-                (job_id,),
-            ).fetchone()
-            if row is None:
-                raise JobNotFound(job_id)
+            self._locked_live_job(
+                connection,
+                job_id,
+                _safe_worker_id(worker_id),
+                expected_attempt=expected_attempt,
+            )
             connection.execute(
                 """
                 INSERT INTO edition_integration_runs (
@@ -422,6 +437,7 @@ class EditionJobStore:
         job_id: str,
         worker_id: str,
         *,
+        expected_attempt: int,
         operation_id: str,
         artifact_kind: str,
         cache_key: str,
@@ -442,7 +458,12 @@ class EditionJobStore:
             estimated_cost_usd,
         )
         with self._connect() as connection:
-            job = self._locked_live_job(connection, job_id, worker_id)
+            job = self._locked_live_job(
+                connection,
+                job_id,
+                worker_id,
+                expected_attempt=expected_attempt,
+            )
             if job["cancellation_requested_at"] is not None:
                 raise PaidDispatchBlocked("Cancellation blocks provider dispatch.")
             existing = connection.execute(
@@ -483,11 +504,32 @@ class EditionJobStore:
             policy = run["policy"]
             if not policy.get("paid_execution_enabled", False):
                 raise PaidDispatchBlocked("Provider dispatch is disabled by policy.")
+            budget_scope_id = policy.get("budget_scope_id")
+            if not isinstance(budget_scope_id, str) or not re.fullmatch(
+                r"[A-Za-z0-9_.:-]{1,96}", budget_scope_id
+            ):
+                raise IntegrationConflict("Integration budget scope is invalid.")
+            connection.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+                (budget_scope_id,),
+            )
+            aggregate = connection.execute(
+                """
+                SELECT
+                    COALESCE(SUM(logical_provider_calls), 0) AS logical,
+                    COALESCE(SUM(transport_attempts), 0) AS transport,
+                    COALESCE(SUM(generated_images), 0) AS images,
+                    COALESCE(SUM(estimated_cost_usd), 0) AS cost
+                FROM edition_integration_runs
+                WHERE policy ->> 'budget_scope_id' = %s
+                """,
+                (budget_scope_id,),
+            ).fetchone()
             totals = {
-                "logical": run["logical_provider_calls"] + logical_calls,
-                "transport": run["transport_attempts"] + transport_attempts,
-                "images": run["generated_images"] + generated_images,
-                "cost": float(run["estimated_cost_usd"]) + estimated_cost_usd,
+                "logical": aggregate["logical"] + logical_calls,
+                "transport": aggregate["transport"] + transport_attempts,
+                "images": aggregate["images"] + generated_images,
+                "cost": float(aggregate["cost"]) + estimated_cost_usd,
             }
             if (
                 totals["logical"] > policy["max_logical_provider_calls"]
@@ -520,18 +562,18 @@ class EditionJobStore:
             connection.execute(
                 """
                 UPDATE edition_integration_runs
-                SET logical_provider_calls = %s,
-                    transport_attempts = %s,
-                    generated_images = %s,
-                    estimated_cost_usd = %s,
+                SET logical_provider_calls = logical_provider_calls + %s,
+                    transport_attempts = transport_attempts + %s,
+                    generated_images = generated_images + %s,
+                    estimated_cost_usd = estimated_cost_usd + %s,
                     updated_at = clock_timestamp()
                 WHERE job_id = %s
                 """,
                 (
-                    totals["logical"],
-                    totals["transport"],
-                    totals["images"],
-                    totals["cost"],
+                    logical_calls,
+                    transport_attempts,
+                    generated_images,
+                    estimated_cost_usd,
                     job_id,
                 ),
             )
@@ -542,11 +584,16 @@ class EditionJobStore:
         job_id: str,
         worker_id: str,
         operation_id: str,
+        *,
+        expected_attempt: int,
     ) -> None:
         operation_id = _safe_operation_id(operation_id)
         with self._connect() as connection:
             job = self._locked_live_job(
-                connection, job_id, _safe_worker_id(worker_id)
+                connection,
+                job_id,
+                _safe_worker_id(worker_id),
+                expected_attempt=expected_attempt,
             )
             if job["cancellation_requested_at"] is not None:
                 raise PaidDispatchBlocked("Cancellation blocks provider dispatch.")
@@ -570,6 +617,7 @@ class EditionJobStore:
         job_id: str,
         worker_id: str,
         *,
+        expected_attempt: int,
         operation_id: str,
         result: dict[str, Any],
         logical_calls: int,
@@ -589,7 +637,12 @@ class EditionJobStore:
         )
         operation_id = _safe_operation_id(operation_id)
         with self._connect() as connection:
-            self._locked_live_job(connection, job_id, _safe_worker_id(worker_id))
+            self._locked_live_job(
+                connection,
+                job_id,
+                _safe_worker_id(worker_id),
+                expected_attempt=expected_attempt,
+            )
             operation = connection.execute(
                 """
                 SELECT * FROM edition_paid_operations
@@ -667,11 +720,44 @@ class EditionJobStore:
             ).fetchone()
             return dict(updated)
 
+    def mark_paid_operation_uncertain(
+        self,
+        job_id: str,
+        worker_id: str,
+        *,
+        operation_id: str,
+        expected_attempt: int,
+    ) -> dict[str, Any]:
+        """Keep the full reservation when remote usage/outcome is unknown."""
+
+        operation_id = _safe_operation_id(operation_id)
+        with self._connect() as connection:
+            self._locked_live_job(
+                connection,
+                job_id,
+                _safe_worker_id(worker_id),
+                expected_attempt=expected_attempt,
+            )
+            updated = connection.execute(
+                """
+                UPDATE edition_paid_operations
+                SET state = 'uncertain', completed_at = clock_timestamp()
+                WHERE job_id = %s AND operation_id = %s
+                  AND state = 'reserved' AND attempt = %s
+                RETURNING *
+                """,
+                (job_id, operation_id, expected_attempt),
+            ).fetchone()
+            if updated is None:
+                raise PaidDispatchBlocked("Paid operation uncertainty fence is stale.")
+            return dict(updated)
+
     def freeze_assembly(
         self,
         job_id: str,
         worker_id: str,
         *,
+        expected_attempt: int,
         assembly_fingerprint: str,
         edition_id: str,
     ) -> dict[str, Any]:
@@ -679,7 +765,12 @@ class EditionJobStore:
         if not re.fullmatch(r"[A-Za-z0-9_.:-]{1,160}", edition_id):
             raise ValueError("edition identity contains unsupported characters")
         with self._connect() as connection:
-            self._locked_live_job(connection, job_id, _safe_worker_id(worker_id))
+            self._locked_live_job(
+                connection,
+                job_id,
+                _safe_worker_id(worker_id),
+                expected_attempt=expected_attempt,
+            )
             row = connection.execute(
                 """
                 SELECT * FROM edition_integration_runs
@@ -886,6 +977,7 @@ class EditionJobStore:
         worker_id: str,
         *,
         lease_seconds: float = 30.0,
+        expected_attempt: int | None = None,
     ) -> JobRecord:
         worker_id = _safe_worker_id(worker_id)
         lease = _lease_duration(lease_seconds)
@@ -900,9 +992,17 @@ class EditionJobStore:
                   AND lease_owner = %s
                   AND state = ANY(%s)
                   AND lease_expires_at > clock_timestamp()
+                  AND (%s::integer IS NULL OR attempt = %s)
                 RETURNING *
                 """,
-                (lease, job_id, worker_id, [state.value for state in ACTIVE_STATES]),
+                (
+                    lease,
+                    job_id,
+                    worker_id,
+                    [state.value for state in ACTIVE_STATES],
+                    expected_attempt,
+                    expected_attempt,
+                ),
             ).fetchone()
         if row is None:
             raise LeaseConflict("Worker does not own a live lease.")
@@ -917,11 +1017,17 @@ class EditionJobStore:
         lease_seconds: float = 30.0,
         manifest_version: str | None = None,
         manifest: dict[str, Any] | None = None,
+        expected_attempt: int | None = None,
     ) -> JobRecord:
         worker_id = _safe_worker_id(worker_id)
         lease = _lease_duration(lease_seconds)
         with self._connect() as connection:
-            row = self._locked_live_job(connection, job_id, worker_id)
+            row = self._locked_live_job(
+                connection,
+                job_id,
+                worker_id,
+                expected_attempt=expected_attempt,
+            )
             current = JobState(row["state"])
             if row["cancellation_requested_at"] is not None:
                 return self._cancel_at_checkpoint(connection, row)
@@ -963,6 +1069,7 @@ class EditionJobStore:
         retryable: bool,
         diagnostic: str,
         max_attempts: int = MAX_ATTEMPTS,
+        expected_attempt: int | None = None,
     ) -> JobRecord:
         code = _safe_code(code)
         diagnostic = _safe_text(
@@ -971,7 +1078,12 @@ class EditionJobStore:
             maximum=160,
         )
         with self._connect() as connection:
-            row = self._locked_live_job(connection, job_id, _safe_worker_id(worker_id))
+            row = self._locked_live_job(
+                connection,
+                job_id,
+                _safe_worker_id(worker_id),
+                expected_attempt=expected_attempt,
+            )
             current = JobState(row["state"])
             if row["cancellation_requested_at"] is not None:
                 return self._cancel_at_checkpoint(connection, row)
@@ -1047,10 +1159,16 @@ class EditionJobStore:
         *,
         manifest_version: str | None = None,
         manifest: dict[str, Any] | None = None,
+        expected_attempt: int | None = None,
     ) -> JobRecord:
         validated = validator.validate(document)
         with self._connect() as connection:
-            row = self._locked_live_job(connection, job_id, _safe_worker_id(worker_id))
+            row = self._locked_live_job(
+                connection,
+                job_id,
+                _safe_worker_id(worker_id),
+                expected_attempt=expected_attempt,
+            )
             current = JobState(row["state"])
             if row["cancellation_requested_at"] is not None:
                 return self._cancel_at_checkpoint(connection, row)
@@ -1091,6 +1209,8 @@ class EditionJobStore:
         connection: psycopg.Connection[dict[str, Any]],
         job_id: str,
         worker_id: str,
+        *,
+        expected_attempt: int | None = None,
     ) -> dict[str, Any]:
         row = connection.execute(
             """
@@ -1105,6 +1225,8 @@ class EditionJobStore:
             raise JobNotFound(job_id)
         if row["lease_owner"] != worker_id or not row["lease_is_live"]:
             raise LeaseConflict("Worker does not own a live lease.")
+        if expected_attempt is not None and row["attempt"] != expected_attempt:
+            raise LeaseConflict("Worker attempt identity is stale.")
         if JobState(row["state"]) not in ACTIVE_STATES:
             raise LeaseConflict("Job is not in an active leased state.")
         return row
