@@ -7,6 +7,24 @@
 **Kapsam:** FastAPI + direct psycopg + PostgreSQL durable job metadata + ayrı
 Python worker
 
+## Active lifecycle amendment — O-011
+
+Bu belge ve Q05 validation kanıtı, `summarizing` stage'i içeren historical Q05
+v1 implementation contract'ını kaydeder. Fatih'in 8 Eylül 2026 owner kararıyla
+product runtime'da AI text generation/verifier/repair kaldırılmıştır. Aktif
+production lifecycle hedefi artık tam olarak şöyledir:
+
+```text
+requested -> collecting -> selecting -> illustrating
+          -> laying_out -> ready | failed | cancelled
+```
+
+Q05'in durable request, idempotency, lease, heartbeat, cancellation, recovery
+ve immutable publication ilkeleri değişmez. Stage enum/model, persisted state
+compatibility ve test migration'ı current Q10 revision'ında controlled ve
+fail-closed biçimde yapılacaktır. Bu authority-only adım production model,
+schema veya tarihsel test sonucunu değiştirmez.
+
 ## 1. Amaç ve sınır
 
 Bu slice, `Gazetemi Hazırla` isteğinin kaybolmayan ve gözlemlenebilir server
