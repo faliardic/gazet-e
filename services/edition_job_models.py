@@ -11,7 +11,8 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-REQUEST_VERSION = "gazet-e.edition-request.v1"
+REQUEST_VERSION = "gazet-e.edition-request.v2"
+LEGACY_REQUEST_VERSION = "gazet-e.edition-request.v1"
 MAX_IDEMPOTENCY_KEY_LENGTH = 128
 MAX_ATTEMPTS = 3
 
@@ -31,7 +32,6 @@ class JobState(StrEnum):
 ACTIVE_STATES = (
     JobState.COLLECTING,
     JobState.SELECTING,
-    JobState.SUMMARIZING,
     JobState.ILLUSTRATING,
     JobState.LAYING_OUT,
 )
@@ -40,8 +40,7 @@ TERMINAL_STATES = (JobState.READY, JobState.FAILED, JobState.CANCELLED)
 NEXT_STATE = {
     JobState.REQUESTED: JobState.COLLECTING,
     JobState.COLLECTING: JobState.SELECTING,
-    JobState.SELECTING: JobState.SUMMARIZING,
-    JobState.SUMMARIZING: JobState.ILLUSTRATING,
+    JobState.SELECTING: JobState.ILLUSTRATING,
     JobState.ILLUSTRATING: JobState.LAYING_OUT,
     JobState.LAYING_OUT: JobState.READY,
 }
@@ -72,14 +71,14 @@ def validate_transition(
 class EditionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    request_version: str = Field(pattern=r"^gazet-e\.edition-request\.v1$")
+    request_version: str = Field(pattern=r"^gazet-e\.edition-request\.v[12]$")
     locale: str = Field(min_length=2, max_length=32)
     timezone: str = Field(min_length=1, max_length=64)
 
     @field_validator("request_version")
     @classmethod
     def require_supported_version(cls, value: str) -> str:
-        if value != REQUEST_VERSION:
+        if value not in {LEGACY_REQUEST_VERSION, REQUEST_VERSION}:
             raise ValueError(f"unsupported request_version: {value}")
         return value
 

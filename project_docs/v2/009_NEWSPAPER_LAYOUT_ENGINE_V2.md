@@ -8,11 +8,25 @@
 
 **Deterministic acceptance:** `PASS` — corrected focused Q09 suite `33 passed`,
 including the unchanged Q04 `CanonicalEditionValidator` projection path. The
-pre-correction relevant non-PostgreSQL baseline was `210 passed, 1 skipped`;
-the correction has no consumer outside the focused Q09 boundary, so that broad
-suite was not repeated. Independent review of the corrected head is `PENDING`.
-The proposed branch truth remains Q09 `COMPLETE` and Q10 `NEXT`; neither status
-is represented as merged `main` truth before review and merge.
+pre-correction relevant non-PostgreSQL baseline was `210 passed, 1 skipped`.
+Independent corrected-head review passed for `129c070ef3e93aa6bcd65c495e04215d3c56ec2a`;
+PR #23 was merged as `8f55b0aee5f5e623318cdb0d9024af1ca31d5546`.
+Q09 is therefore `COMPLETE`; Q10 owns the now-active assembly/asset integration.
+
+**Active layout amendment:** Q09's `1000×1414 logical` engine, tests and merge
+evidence remain historical `COMPLETE`. O-012/O-013 now require the current Q10
+revision to establish a versioned `350 mm × 500 mm` physical full-page profile,
+fixed logical render scale and optional reserved in-page advertising geometry.
+Q09 history is not rewritten and its production core is not changed by this
+authority sync.
+
+The Q10 revision must reserve ad geometry before article packing, allow at most
+one ad/page and `%15` page area, require `REKLAM`, forbid overlap with
+editorial/source/hit regions, and preserve page gestures outside the bounded ad
+tap region. No suitable slot means no ad. Ad slot/creative identity participates
+in layout/edition identity; same immutable edition reopening retains the same
+creative. Only local/synthetic inventory belongs to Q10; real ad serving stays
+Q14.
 
 ## 1. Boundary
 

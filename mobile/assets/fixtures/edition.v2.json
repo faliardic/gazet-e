@@ -1,0 +1,113 @@
+{
+  "contract_version": "gazet-e.edition.v2",
+  "edition": {
+    "id": "fixture-edition-v2",
+    "state": "ready",
+    "title": "08.09.2026 10:00 • GAZET+E",
+    "requested_at": "2026-09-08T09:55:00+03:00",
+    "generated_at": "2026-09-08T10:00:00+03:00",
+    "locale": "tr-TR",
+    "timezone": "Europe/Istanbul",
+    "brand": {"name": "Gazet+E", "masthead": "GAZET+E"},
+    "versions": {
+      "visual_brief": "gazet-e.visual-brief.v3",
+      "visual_style": "gazet-e.editorial-visual.v1",
+      "layout_engine": "gazet-e.layout-engine.v2",
+      "physical_layout": "gazet-e.physical-layout.v1",
+      "ad_policy": "gazet-e.synthetic-ad-policy.v1"
+    }
+  },
+  "pages": [
+    {
+      "id": "page-1",
+      "order": 1,
+      "label": "BİRİNCİ SAYFA",
+      "section": "GÜNDEM",
+      "physical_profile": {
+        "version": "gazet-e.physical-profile.350x500.v1",
+        "width_mm": 350,
+        "height_mm": 500,
+        "logical_units_per_mm": 2
+      },
+      "canvas": {"width": 700, "height": 1000, "unit": "logical"},
+      "template": {"id": "front", "version": "3+gazet-e.physical-layout.v1"},
+      "placements": [
+        {
+          "id": "page-1-hero",
+          "article_id": "article-v2-a",
+          "role": "hero",
+          "rect": {"x": 40, "y": 120, "width": 620, "height": 650},
+          "z_index": 0,
+          "hit_regions": [
+            {
+              "id": "page-1-hero-reading",
+              "action": "open_reading",
+              "rect": {"x": 40, "y": 120, "width": 620, "height": 570},
+              "accessibility_label": "Haberi Okuma Modu'nda aç"
+            },
+            {
+              "id": "page-1-hero-source",
+              "action": "open_source",
+              "rect": {"x": 40, "y": 690, "width": 620, "height": 80},
+              "accessibility_label": "Kaynağa Git"
+            }
+          ]
+        }
+      ],
+      "ads": [
+        {
+          "id": "ad-page-1",
+          "creative_id": "synthetic-books-v1",
+          "label": "REKLAM",
+          "headline": "KİTAP GÜNLERİ",
+          "body": "Bağımsız yayınlar için sentetik tanıtım alanı.",
+          "rect": {"x": 70, "y": 900, "width": 560, "height": 80}
+        }
+      ]
+    }
+  ],
+  "articles": [
+    {
+      "id": "article-v2-a",
+      "cluster_id": "cluster-v2-a",
+      "content_version": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "headline": "Kent kütüphanesi yeni okuma programını duyurdu",
+      "feed_excerpt": "Kaynak akışı hafta sonu düzenlenecek programın ayrıntılarını paylaştı.",
+      "primary_source_id": "source-v2-a",
+      "sources": [
+        {
+          "id": "source-v2-a",
+          "publisher_id": "publisher-v2-a",
+          "name": "Sentetik Kaynak",
+          "canonical_url": "https://example.org/news/article-v2-a",
+          "published_at": "2026-09-08T09:30:00+03:00"
+        }
+      ],
+      "visual": {
+        "asset_id": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "content_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "width": 1536,
+        "height": 1024,
+        "alt": "Kent kütüphanesi programı için yapay zekâ üretimi editoryal illüstrasyon.",
+        "transparency_label": "AI-generated editorial image",
+        "provenance": {
+          "generated_by_ai": true,
+          "provider": "openai",
+          "model": "gpt-image-2-2026-04-21",
+          "generated_at": "2026-09-08T09:59:00+03:00",
+          "brief_version": "gazet-e.visual-brief.v3",
+          "style_version": "gazet-e.editorial-visual.v1",
+          "safety_class": "ordinary",
+          "cache_key": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
+      },
+      "cache": {
+        "visual_brief_key": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      }
+    }
+  ],
+  "cache": {
+    "edition_key": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "layout_key": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+  }
+}

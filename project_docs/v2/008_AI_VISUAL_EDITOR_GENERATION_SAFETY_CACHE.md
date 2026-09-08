@@ -7,14 +7,22 @@ editorial-safety boundary
 
 **Completion gate:** `PASS`. The corrected v2 brief/QA and v3 generation-prompt
 contract passed its bounded live-image gate on exact production revision
-`0ca86a51bbfa328deed880a88da687930451de61`. Q08 is `COMPLETE`; Q09 is `NEXT`.
+`0ca86a51bbfa328deed880a88da687930451de61`. Q08 is `COMPLETE`; Q09 later
+completed and current integration work is Q10.
+
+**Active integration amendment:** O-011 removes Q07/AI-text from product
+runtime. Q08 remains the sole AI editorial generation stage: image generation
+plus image safety/semantic QA. Its historical implementation/live evidence is
+unchanged, but Q10 must supply Q06 fact/source identity directly and must not
+invoke Q07 summary/verifier/repair. Deterministic visual-brief construction is
+not a paid text-model call; target text-AI cost is `0`.
 
 ## 1. Boundary
 
 Q08 is an isolated server-side stage:
 
 ```text
-Q06 facts + verified Q07 identity
+Q06 facts + source/cluster identity
   -> deterministic visual brief and safety classification
   -> exact cache lookup
   -> one OpenAI Image API generation
@@ -23,10 +31,11 @@ Q06 facts + verified Q07 identity
   -> ready memory artifact or fail-closed unavailable
 ```
 
-The Q06 fact packet remains factual authority. A Q07 summary may be supplied
-only to validate matching ready/verified identity; its prose does not authorize
-new visual detail. Q08 does not fetch publisher pages, bodies, images, reference
-photos, social images or new sources.
+The Q06 fact packet remains factual authority. Historical callers could supply
+a Q07 artifact only for matching identity, but active product runtime does not
+generate or pass AI summary prose. No text output authorizes new visual detail.
+Q08 does not fetch publisher pages, bodies, images, reference photos, social
+images or new sources.
 
 Q08 does not modify the Q05 worker/store, Q06 ingestion, Q07 summary pipeline,
 edition schema, mobile reader, Q09 layout or Q10 publication/storage wiring.

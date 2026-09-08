@@ -1,7 +1,7 @@
 # Gazet+E Mobile V2 — Kanonik Ürün Yol Haritası
 
 **Durum:** Aktif geliştirme için tek kanonik yürütme kuyruğu  
-**Güncelleme:** 7 Eylül 2026<br>
+**Güncelleme:** 8 Eylül 2026<br>
 **Kapsam kaynağı:** `project_docs/v2/GAZETTE_MOBILE_V2_SCOPE.md`  
 **Kalıcı ürün kararları:** `project_docs/protocols/GAZETTE_UNIFIED_PROJECT_SOURCE.md`
 
@@ -23,6 +23,8 @@ Bu `ROADMAP.md`, Gazet+E Mobile V2 için sıradaki production işinin seçildiğ
 - `DECISION GATE` — implementation öncesi owner kararı gerekir.
 - `RELEASE GATE` — yayın yeterliliği kapısıdır.
 - `FINAL OWNER GATE` — public/store release için açık owner kararı gerekir.
+- `RETIRED/SUPERSEDED` — tarihsel implementation/evidence korunur fakat aktif
+  product runtime yönü daha yeni owner kararıyla değiştirilmiştir.
 
 ## 3. Kanonik queue
 
@@ -70,7 +72,7 @@ Architecture çıktısı en az şunları kesinleştirir:
 - provider secret'larının client'a girmemesi;
 - edition/job lifecycle;
 - canonical edition JSON/document contract;
-- AI summary ve AI image işlerinin nerede çalışacağı;
+- AI generation işlerinin güvenli backend sınırı;
 - cache/identity yaklaşımı;
 - v1.1 reuse vs replace matrisi.
 
@@ -89,28 +91,34 @@ Bitiş tanımı:
 - page navigation gesture conflict yaratmaz;
 - newspaper article regions tıklanabilir;
 - article tap `Okuma Modu` açar;
-- Okuma Modu mobil-okunur başlık, AI/editorial image placeholder, Gazet+E özeti, kaynak ve `Kaynağa Git` sunar;
+- Okuma Modu mobil-okunur source headline, fixture dönemine ait örnek metin,
+  AI/editorial image placeholder, kaynak ve `Kaynağa Git` sunar;
 - paper üzerindeki source affordance gerekirse doğrudan kaynağı açabilir;
 - Okuma Modu'ndan geri dönüş aynı edition/page bağlamını korur;
 - Fatih gerçek cihazda gesture/readability PASS verir.
 
 Bu Q, product-market riski yüksek temel etkileşimi backend yatırımından önce kanıtlar.
+Q03 fixture'daki tarihsel örnek summary içeriği active product text contract'ı
+değildir; O-011 ile Q10 Okuma Modu source excerpt sınırına geçer.
 
 ### Q04 — Edition document model + interactive layout contract
 
-**Durum:** `COMPLETE`
+**Durum:** `COMPLETE` — historical `gazet-e.edition.v1`; Q10 revision active
 
 - edition ID/timestamp;
 - page identity/order;
 - article identity;
 - newspaper rectangle/hit-region coordinates;
-- headline/summary/source/source URL;
+- source headline/bounded source excerpt/source/source URL;
 - AI visual metadata;
 - layout template/version;
 - reading-mode content;
 - provenance/cache fields
 
 JSON-ready canonical contract olarak tanımlanır ve fixture/regression testleri eklenir.
+O-011/O-012/O-013; active successor contract'ın AI text zorunluluğunu
+kaldırmasını, physical page profile ve in-page ad geometry/identity taşımasını
+gerektirir. Q04 v1 evidence korunur; controlled version migration Q10'a aittir.
 
 ### Q05 — On-demand edition job service
 
@@ -118,7 +126,13 @@ JSON-ready canonical contract olarak tanımlanır ve fixture/regression testleri
 
 `Gazetemi Hazırla` eylemi için bounded job lifecycle kurulur:
 
-`requested -> collecting -> selecting -> summarizing -> illustrating -> laying_out -> ready | failed | cancelled`
+Historical Q05 v1 sırası `summarizing` stage'ini içeriyordu. O-011 ile aktif
+production target lifecycle şöyledir:
+
+`requested -> collecting -> selecting -> illustrating -> laying_out -> ready | failed | cancelled`
+
+Q05'in tarihsel durability/lease/idempotency kanıtı korunur; stage-model ve
+recovery migration'ı current Q10 revision içinde kontrollü yapılır.
 
 - progress truthful olur;
 - duplicate request storm engellenir;
@@ -139,7 +153,7 @@ Mevcut RSS kabiliyetleri V2 service contract'a taşınır veya dar uyarlamayla y
 
 ### Q07 — AI editorial summary pipeline
 
-**Durum:** `COMPLETE`
+**Durum:** `RETIRED/SUPERSEDED`
 
 - haber gerçeğine sadık kısa Gazet+E özeti;
 - unsupported detail/hallucination kontrolü;
@@ -149,6 +163,10 @@ Mevcut RSS kabiliyetleri V2 service contract'a taşınır veya dar uyarlamayla y
 - failure fallback
 
 kurulur.
+
+Bu implementation, testler ve live-gate kanıtı tarihsel olarak geçerlidir;
+O-011 sonrasında product runtime Q07 generation/verifier/repair/cache yolunu
+çağırmaz ve text-AI maliyeti sıfırdır. Bu durum tarihsel dosyaları silmez.
 
 ### Q08 — AI visual editor + generation + safety + cache
 
@@ -170,7 +188,7 @@ Bitiş tanımı:
 
 ### Q09 — Newspaper layout engine V2
 
-**Durum:** `COMPLETE`
+**Durum:** `COMPLETE` — historical logical-canvas engine
 
 Ranked article set'i basılı gazete estetiğine dönüştüren versioned layout engine kurulur.
 
@@ -181,18 +199,34 @@ Ranked article set'i basılı gazete estetiğine dönüştüren versioned layout
 - mobile zoom'da okunabilir tipografi;
 - page count/overflow deterministic davranış.
 
+Q09'un `1000×1414 logical` acceptance kanıtı tarihseldir. O-012/O-013 ile
+gereken versioned `350×500 mm` physical page profile ve reserved in-page ad
+contract'ı, Q09 geçmişini yeniden yazmadan current Q10 revision'ında uygulanır.
+
 ### Q10 — End-to-end one-tap edition integration
 
-**Durum:** `NEXT`
+**Durum:** `ACTIVE`
 
-`Gazetemi Hazırla` → live news → selection → AI summary → AI image → layout → interactive mobile edition zinciri tamamlanır.
+`Gazetemi Hazırla` → live news → selection → AI editorial image + image QA →
+`350×500 mm` physical newspaper layout + bounded in-page ads → interactive
+mobile edition zinciri tamamlanır. AI text generation/verifier/repair yoktur.
 
 Acceptance:
 
+- active request/edition contracts are `gazet-e.edition-request.v2` and
+  `gazet-e.edition.v2`; new jobs never enter historical `summarizing`;
 - kullanıcı manuel teknik adım yapmaz;
 - progress anlaşılırdır;
 - partial failure edition'ı bütünüyle gereksiz bozmaz;
 - ready edition iki modda açılır;
+- Okuma Modu source headline, varsa bounded feed excerpt, publication/source,
+  AI editorial visual ve `Kaynağa Git` sunar; excerpt uydurulmaz ve reklam yoktur;
+- Gazete Modu fixed physical page'i fit/zoom/pan/page navigation ile korur;
+- synthetic/local reklam sayfa başına en fazla bir, alanın en fazla `%15`i,
+  açık `REKLAM` label'ı ve editorial/hit/gesture ayrımıyla yerleşir; uygun slot
+  yoksa reklam yoktur;
+- aynı immutable edition aynı ad creative'i korur; yeni edition creative'i
+  değiştirebilir;
 - source links çalışır;
 - real-device end-to-end PASS gerekir.
 
@@ -243,7 +277,10 @@ owner review ile kapanır.
 
 **Durum:** `QUEUED`
 
-Q13 gate sonrası free/premium sınırları ve gerçek AI maliyetine dayalı quota belirlenir.
+Q13 gate sonrası free/premium sınırları, gerçek image-generation/QA maliyeti ve
+monetization mimarisi belirlenir. Gerçek ad serving/network, targeting,
+tracking, auction ve advertiser/billing entegrasyonu bu Q'ya aittir; Q10 yalnız
+synthetic/local ad-layout kanıtını taşır.
 
 Candidate ürün ayrımı:
 

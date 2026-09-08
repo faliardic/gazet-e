@@ -2,7 +2,11 @@
 
 ## 1. Product statement
 
-Gazet+E Mobile V2, kullanıcının istediği anda güncel haberleri derleyip yapay zekâ ile seçen, özetleyen ve görselleştiren; sonucu klasik basılı gazete estetiğinde interaktif bir mobil baskı olarak sunan kişisel gazete uygulamasıdır.
+Gazet+E Mobile V2, kullanıcının istediği anda güncel haberleri derleyip
+deterministik olarak ayıklayan/sıralayan ve AI editorial görsellerle
+zenginleştiren; sonucu fiziksel tam sayfa basılı gazete estetiğinde interaktif
+bir mobil baskı olarak sunan kişisel gazete uygulamasıdır. Product runtime haber
+metni üretmek veya özetlemek için AI kullanmaz.
 
 Ana değer önerisi haberleri kopyalamak değil, **bilgi gürültüsünü kullanıcının okuyabileceği tek bir editoryal baskıya dönüştürmektir**.
 
@@ -14,11 +18,14 @@ Uygulamanın merkezinde tek bir güçlü eylem vardır:
 
 Bu eylem current edition üretim zincirini başlatır:
 
-`collect -> normalize -> dedupe -> rank -> summarize -> visual brief -> AI image -> layout -> ready edition`
+`collect -> normalize -> dedupe -> rank -> visual brief -> AI image/QA -> physical layout + in-page ads -> ready edition`
 
 Kullanıcı teknik pipeline ayrıntısıyla uğraşmaz. İlerleme durumu yalnız truthful ve anlaşılır aşamalarla gösterilir.
 
-Her baskı oluşturulduğu zamana göre bir `edition` kimliği ve zaman damgası taşır. Aynı haber tekrar görüldüğünde AI summary/image maliyeti gereksiz yere yeniden harcanmaz; identity/version-aware cache kullanılır.
+Her baskı oluşturulduğu zamana göre bir `edition` kimliği ve zaman damgası
+taşır. Aynı haber tekrar görüldüğünde doğrulanmış AI image maliyeti gereksiz
+yere yeniden harcanmaz; identity/version-aware cache kullanılır. Text-AI
+runtime çağrısı ve maliyeti sıfırdır.
 
 ## 3. Primary reading modes
 
@@ -28,8 +35,11 @@ V2'nin tam olarak iki primary reading mode'u vardır.
 
 Default ana deneyimdir.
 
-- Ekranda gerçek bir basılı gazete sayfası kompozisyonu görünür.
-- Telefon sayfayı responsive feed'e dönüştürmez; gazete sayfası kendi koordinat sistemini korur.
+- Ekranda versioned **350 mm × 500 mm** initial physical profile'a sahip gerçek
+  bir tam basılı gazete sayfası kompozisyonu görünür.
+- Contract fiziksel ölçüleri ve logical render scale'i birlikte taşır.
+- Telefon sayfayı responsive feed'e dönüştürmez veya editorial block'ları
+  reflow etmez; gazete sayfası kendi sabit koordinat sistemini korur.
 - Kullanıcı pinch ile zoom yapar.
 - Zoomed durumda pan/scroll ile sayfanın farklı bölgelerine gider.
 - Sayfalar arasında swipe/page navigation vardır.
@@ -38,6 +48,11 @@ Default ana deneyimdir.
 - Haber başlığı/görseli/alanına tap varsayılan olarak Okuma Modu'nu açar.
 - Kaynak etiketi veya uygun küçük source affordance doğrudan original source'a gidebilir.
 - Page transition hafif ve hızlıdır; günlük kullanımı yavaşlatan ağır 3D page-curl zorunlu değildir.
+- Reklam varsa yalnız önceden ayrılmış sayfa-içi slotta, açık `REKLAM`
+  etiketiyle ve sayfa alanının en fazla `%15`inde görünür; sayfa başına en fazla
+  bir reklam vardır. Uygun slot yoksa reklam gösterilmez.
+- Reklam editorial/source/hit region'larıyla örtüşmez ve bounded tap alanı
+  dışında pinch/pan/page-navigation gesture'larını yakalamaz.
 
 ### 3.2 Okuma Modu
 
@@ -46,9 +61,9 @@ Gazete deneyimini tamamlayan mobil-okunur article view'dır.
 Minimum içerik:
 
 - headline;
+- varsa bounded source/feed description excerpt;
 - AI-generated editorial image;
 - image transparency/provenance indicator;
-- Gazet+E kısa özeti;
 - source/publication adı;
 - yayın zamanı mevcutsa;
 - `Kaynağa Git` eylemi;
@@ -57,6 +72,7 @@ Minimum içerik:
 Geri dönüş mümkün olduğunca aynı edition, page ve önceki navigation bağlamını korur.
 
 Okuma Modu publisher'ın tam makalesinin kopyası değildir; kullanıcı orijinal içeriğe source link ile gider.
+Missing excerpt AI ile doldurulmaz. Okuma Modu tamamen ad-free'dir.
 
 ## 4. Newspaper visual system
 
@@ -71,6 +87,11 @@ Gazete ekranı klasik basılı gazete dilini korur:
 - dengeli görsel/metin yoğunluğu;
 - versioned template sistemi.
 
+Initial canonical print profile `350 mm × 500 mm` broadsheet-style full-page
+sheet'tir. Margin, gutter, column, typography, image ve ad slot density'si bu
+physical profile ve onun versioned logical scale'iyle hesaplanır. Bu profil
+matbaa vendor standardı değildir; ileride versioned biçimde değişebilir.
+
 Ama sayfa statik PDF bitmap'i olmak zorunda değildir. V2'nin canonical edition modeli semantik/interaktif öğeler taşımalıdır:
 
 - article blocks;
@@ -83,6 +104,21 @@ Ama sayfa statik PDF bitmap'i olmak zorunda değildir. V2'nin canonical edition 
 
 PDF export ileride secondary capability olabilir; mobil ana reader gerçek PDF viewer'a bağımlı tasarlanmaz.
 
+### 4.1 In-page advertising envelope
+
+Advertising yalnız Gazete Modu sayfa kompozisyonunun önceden ayrılmış bounded
+slotudur. Sayfa başına en fazla bir slot, sayfa alanının en fazla `%15`i,
+zorunlu `REKLAM` etiketi ve editorial/source/hit geometry'den tam ayrım
+uygulanır. Front-page masthead, hero ve source affordance korunur. Uygun slot
+yoksa sayfa reklamsızdır.
+
+Overlay/interstitial/popup/modal/sticky/fullscreen/autoplay/forced-wait reklam
+yoktur; Okuma Modu ad-free'dir. Yeni edition farklı local/synthetic creative
+seçebilir fakat aynı immutable edition tekrar açıldığında creative değişmez.
+Ad geometry/creative identity layout ve edition identity'ye katılır. Q10 yalnız
+synthetic/local inventory kanıtını kurar; gerçek ad network, targeting,
+tracking, advertiser/billing ve SDK entegrasyonu Q14 ile Q13 gate'lerine aittir.
+
 ## 5. AI editorial images
 
 V2 görünür story imagery'sinin varsayılan kaynağı AI generation'dır.
@@ -90,7 +126,7 @@ V2 görünür story imagery'sinin varsayılan kaynağı AI generation'dır.
 Pipeline:
 
 1. article facts çıkarılır;
-2. model bir visual brief üretir;
+2. bounded deterministic visual brief üretilir;
 3. editorial safety class belirlenir;
 4. image model görsel üretir;
 5. visual QA kontrolü yapılır;
@@ -126,9 +162,11 @@ Her article için zorunlu minimum source truth:
 - canonical/original URL;
 - publication time/date mevcutsa;
 - source article identity veya normalized identity;
-- Gazet+E summary ile source content ayrımı.
+- varsa bounded source/feed excerpt'in source content olduğu bilgisi.
 
-Gazet+E'nin summary'si kaynak haberi desteklemeyen yeni facts eklememelidir. Full publisher article metni V2 product content'i olarak varsayılan şekilde yeniden yayımlanmaz.
+Product runtime AI summary, dek veya reading body üretmez. Excerpt yoksa AI ile
+tamamlanmaz. Full publisher article metni V2 product content'i olarak varsayılan
+şekilde yeniden yayımlanmaz.
 
 ## 7. Mobile/backend boundary principles
 
@@ -160,8 +198,8 @@ On-demand edition bekleme süresi ürünün temel riskidir.
 
 Bu nedenle:
 
-- cached article summary/image yeniden kullanılmalı;
-- yalnız yeni/değişmiş article AI işine girmeli;
+- cached verified article image yeniden kullanılmalı;
+- yalnız yeni/değişmiş article image generation/QA işine girmeli;
 - progress UI truthful olmalı;
 - image generation paralellik/rate limit sınırları kontrollü olmalı;
 - partial asset failure için fallback bulunmalı;
@@ -182,7 +220,9 @@ Muhtemel premium değer alanları:
 - archive/offline;
 - premium generation quota.
 
-Gerçek fiyat ve quota AI maliyet ölçümü, source/legal review ve kullanıcı testi sonrasında belirlenir.
+Gerçek fiyat ve quota image-generation/QA maliyet ölçümü, source/legal review ve
+kullanıcı testi sonrasında belirlenir. Text-AI maliyeti product runtime'da
+sıfırdır.
 
 ## 11. Explicit non-goals for initial V2
 
@@ -191,7 +231,7 @@ Gerçek fiyat ve quota AI maliyet ölçümü, source/legal review ve kullanıcı
 - sosyal medya feed'i;
 - comments/community;
 - publisher CMS;
-- reklam ağı;
+- gerçek reklam ağı, targeting, tracking ve billing entegrasyonu;
 - video-first experience;
 - desktop uygulamasını yeniden yazmak;
 - web publication sistemini V2 reader'a dönüştürmek;

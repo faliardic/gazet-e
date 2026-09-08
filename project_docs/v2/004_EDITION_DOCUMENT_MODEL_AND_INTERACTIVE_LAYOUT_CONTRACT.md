@@ -10,6 +10,32 @@
 
 **Canonical contract:** `gazet-e.edition.v1`
 
+## Active-contract amendment — O-011/O-012/O-013
+
+Q04 `gazet-e.edition.v1` ve aşağıdaki acceptance kanıtı tarihsel olarak
+korunur. Fatih'in 8 Eylül 2026 owner kararı bu v1 contract'ın aktif Q10 için
+final biçim olmadığını kesinleştirmiştir. Bu truth-sync schema veya production
+modeli değiştirmez; controlled successor/version migration Q10 içinde ayrıca
+uygulanacaktır.
+
+Aktif successor contract en az şunları sağlamalıdır:
+
+- AI-generated `dek`, `summary` veya `reading_body` zorunluluğu yoktur;
+  Okuma Modu source headline, varsa bounded source/feed excerpt,
+  publication/source, AI editorial visual ve source action taşır;
+- page, versioned `350 mm × 500 mm` initial physical profile ile logical render
+  scale'i birlikte taşır; mobile editorial reflow yapmaz;
+- Gazete Modu için optional reserved ad placement/creative identity ve açık
+  `REKLAM` semantics taşır; en fazla bir ad/page ve en fazla `%15` page area
+  fail-closed doğrulanır;
+- ad geometry editorial/source/hit geometry ile çakışmaz ve Okuma Modu'na ad
+  taşımaz;
+- same immutable edition aynı ad creative'i korur; geometry/creative değişimi
+  layout/edition cache identity'yi değiştirir.
+
+Existing v1 fixture, schema, parser ve tests bu adımda silinmez veya geçmişte
+bu alanları taşımamış gibi yeniden yazılmaz.
+
 ## 1. Sonuç
 
 Q04, immutable-ready Gazet+E edition belgesini backend ile mobil reader

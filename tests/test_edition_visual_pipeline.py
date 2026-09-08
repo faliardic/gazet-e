@@ -13,7 +13,14 @@ import pytest
 from PIL import Image
 from pydantic import ValidationError
 
-from services.edition_summary_models import EvidenceFact, SummaryFactPacket
+from services.edition_news_models import (
+    ArticleCandidate,
+    ClusterBreakdown,
+    QualityDecision,
+    RankedCluster,
+    RankedCollection,
+    SourceAttribution,
+)
 from services.edition_visual_brief import (
     GENERATION_PROMPT_VERSION,
     MAX_PROMPT_CHARS,
@@ -21,8 +28,11 @@ from services.edition_visual_brief import (
     STYLE_VERSION,
     VISUAL_BRIEF_VERSION,
     VISUAL_QA_VERSION,
+    VisualEvidenceFact,
+    VisualFactPacket,
     VisualBriefError,
     build_visual_brief,
+    build_visual_fact_packet,
     image_cache_key,
     render_generation_prompt,
 )
@@ -187,32 +197,17 @@ def test_named_real_person_flag_forces_non_identifying_conceptual_mode() -> None
     assert any("likeness" in item for item in brief.forbidden_details)
 
 
-def test_verified_summary_is_context_only_and_cannot_add_visual_facts() -> None:
-    summary = SimpleNamespace(
-        status="ready",
-        verification_status="passed",
-        cluster_id="cluster-1",
-        lead_article_id="article-a",
-        evidence_article_ids=("article-a", "article-b"),
-        summary="Desteklenmeyen kırmızı araç ve yağmurlu meydan ayrıntısı.",
-    )
-    brief = build_visual_brief(_packet(), summary=summary)  # type: ignore[arg-type]
-    serialized = json.dumps(brief.model_dump(mode="json"), ensure_ascii=False)
-    assert "kırmızı araç" not in serialized
-    assert "yağmurlu meydan" not in serialized
+def test_q06_direct_visual_packet_is_bounded_and_has_no_q07_dependency() -> None:
+    ranked = _ranked_collection()
+    packet = build_visual_fact_packet(ranked, "cluster-1", locale="tr-TR")
+    assert packet.lead_article_id == "article-a"
+    assert packet.evidence[0].headline == ranked.articles[0].headline
+    assert len(packet.evidence[0].feed_excerpt) <= 600
+    from services import edition_visual_brief
 
-
-def test_mismatched_summary_identity_fails_closed() -> None:
-    summary = SimpleNamespace(
-        status="ready",
-        verification_status="passed",
-        cluster_id="other-cluster",
-        lead_article_id="article-a",
-        evidence_article_ids=("article-a",),
-    )
-    with pytest.raises(VisualBriefError) as error:
-        build_visual_brief(_packet(), summary=summary)  # type: ignore[arg-type]
-    assert error.value.reason_code == "summary_identity_mismatch"
+    source = inspect.getsource(edition_visual_brief)
+    assert "edition_summary" not in source
+    assert "SummaryArtifact" not in source
 
 
 def test_generation_prompt_is_bounded_and_has_safety_instructions() -> None:
@@ -574,7 +569,7 @@ def test_visual_modules_have_only_authorized_provider_call_sites() -> None:
     assert "images.edit" not in sources
     assert "publisher image" not in sources.casefold()
     assert MAX_GENERATION_CONCURRENCY == 2
-    assert VISUAL_BRIEF_VERSION == "gazet-e.visual-brief.v2"
+    assert VISUAL_BRIEF_VERSION == "gazet-e.visual-brief.v3"
     assert GENERATION_PROMPT_VERSION == "gazet-e.image-prompt.v3"
     assert VISUAL_QA_VERSION == "gazet-e.visual-qa.v2"
     assert REQUESTED_IMAGE_MODEL == "gpt-image-2-2026-04-21"
@@ -633,12 +628,12 @@ def _verdict(status: str, *reasons: str) -> VisualQAVerdict:
 
 def _packet(
     *, reverse: bool = False, headline: str = "Kent kütüphanesi programı duyurdu"
-) -> SummaryFactPacket:
+) -> VisualFactPacket:
     evidence = (
         _fact("a", headline=headline),
         _fact("b", headline="Bilim merkezinde yeni sergi açıldı"),
     )
-    return SummaryFactPacket(
+    return VisualFactPacket(
         cluster_id="cluster-1",
         lead_article_id="article-a",
         locale="tr-TR",
@@ -647,8 +642,8 @@ def _packet(
     )
 
 
-def _fact(suffix: str, *, headline: str) -> EvidenceFact:
-    return EvidenceFact(
+def _fact(suffix: str, *, headline: str) -> VisualEvidenceFact:
+    return VisualEvidenceFact(
         article_id=f"article-{suffix}",
         content_version=f"content-{suffix}",
         source_id=f"source-{suffix}",
@@ -658,6 +653,57 @@ def _fact(suffix: str, *, headline: str) -> EvidenceFact:
         headline=headline,
         feed_excerpt=f"Sentnak tarafından sağlanan sentetik bağlam {suffix.upper()}.",
         published_at=NOW,
+    )
+
+
+def _ranked_collection() -> RankedCollection:
+    articles = tuple(
+        ArticleCandidate(
+            article_id=f"article-{suffix}",
+            content_version=f"content-{suffix}",
+            canonical_url=f"https://example.org/{suffix}",
+            headline=headline,
+            feed_excerpt=("Kaynağın bounded açıklaması. " * 40)[:1200],
+            published_at=NOW,
+            collected_at=NOW,
+            attribution=SourceAttribution(
+                publisher_id=f"publisher-{suffix}",
+                source_id=f"source-{suffix}",
+                display_name=f"Kaynak {suffix.upper()}",
+                section="gundem",
+                feed_url=f"https://example.org/{suffix}.xml",
+            ),
+            quality=QualityDecision(
+                policy_version="test-quality.v1",
+                accepted=True,
+            ),
+        )
+        for suffix, headline in (
+            ("a", "Kent kütüphanesi programı duyurdu"),
+            ("b", "Bilim merkezinde yeni sergi açıldı"),
+        )
+    )
+    return RankedCollection(
+        ranking_policy_version="test-ranking.v1",
+        cluster_policy_version="test-cluster.v1",
+        generated_at=NOW,
+        articles=articles,
+        rejected_articles=(),
+        clusters=(
+            RankedCluster(
+                cluster_id="cluster-1",
+                cluster_policy_version="test-cluster.v1",
+                member_article_ids=("article-a", "article-b"),
+                lead_article_id="article-a",
+                publisher_ids=("publisher-a", "publisher-b"),
+                score=1,
+                signals=ClusterBreakdown(
+                    lead_score=1,
+                    source_diversity=0,
+                    total=1,
+                ),
+            ),
+        ),
     )
 
 

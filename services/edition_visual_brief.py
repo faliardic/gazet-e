@@ -6,11 +6,14 @@ import hashlib
 import json
 import re
 import unicodedata
+from datetime import datetime
 
-from services.edition_summary_models import SummaryArtifact, SummaryFactPacket
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from services.edition_news_models import ArticleCandidate, RankedCollection
 from services.edition_visual_models import SafetyCategory, VisualBrief
 
-VISUAL_BRIEF_VERSION = "gazet-e.visual-brief.v2"
+VISUAL_BRIEF_VERSION = "gazet-e.visual-brief.v3"
 GENERATION_PROMPT_VERSION = "gazet-e.image-prompt.v3"
 STYLE_VERSION = "gazet-e.editorial-visual.v1"
 SAFETY_VERSION = "gazet-e.visual-safety.v1"
@@ -18,6 +21,8 @@ VISUAL_QA_VERSION = "gazet-e.visual-qa.v2"
 TARGET_WIDTH = 1536
 TARGET_HEIGHT = 1024
 MAX_PROMPT_CHARS = 6_000
+MAX_VISUAL_EVIDENCE_ARTICLES = 4
+MAX_VISUAL_EVIDENCE_EXCERPT_CHARS = 600
 
 _FOLDED_SENSITIVE_PATTERNS: dict[SafetyCategory, tuple[str, ...]] = {
     "war_conflict": (
@@ -104,13 +109,91 @@ class VisualBriefError(ValueError):
         self.reason_code = reason_code
 
 
-def build_visual_brief(
-    packet: SummaryFactPacket,
+class _FrozenModel(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class VisualEvidenceFact(_FrozenModel):
+    article_id: str = Field(min_length=1, max_length=128)
+    content_version: str = Field(min_length=1, max_length=128)
+    source_id: str = Field(min_length=1, max_length=128)
+    publisher_id: str = Field(min_length=1, max_length=128)
+    source_name: str = Field(min_length=1, max_length=160)
+    canonical_url: str = Field(min_length=1, max_length=2048)
+    headline: str = Field(min_length=1, max_length=300)
+    feed_excerpt: str = Field(max_length=MAX_VISUAL_EVIDENCE_EXCERPT_CHARS)
+    published_at: datetime | None = None
+
+
+class VisualFactPacket(_FrozenModel):
+    cluster_id: str = Field(min_length=1, max_length=128)
+    lead_article_id: str = Field(min_length=1, max_length=128)
+    locale: str = Field(pattern=r"^[a-z]{2}(?:-[A-Z]{2})?$")
+    fact_fingerprint: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    evidence: tuple[VisualEvidenceFact, ...] = Field(
+        min_length=1,
+        max_length=MAX_VISUAL_EVIDENCE_ARTICLES,
+    )
+
+    @model_validator(mode="after")
+    def validate_evidence_identity(self) -> VisualFactPacket:
+        article_ids = [item.article_id for item in self.evidence]
+        if len(article_ids) != len(set(article_ids)):
+            raise ValueError("duplicate visual evidence article_id")
+        if self.lead_article_id not in article_ids:
+            raise ValueError("visual lead article must be present in evidence")
+        return self
+
+
+def build_visual_fact_packet(
+    collection: RankedCollection,
+    cluster_id: str,
     *,
-    summary: SummaryArtifact | None = None,
+    locale: str = "tr-TR",
+) -> VisualFactPacket:
+    """Build Q08 facts directly from Q06 without importing the retired Q07 path."""
+
+    matches = tuple(item for item in collection.clusters if item.cluster_id == cluster_id)
+    if len(matches) != 1:
+        raise VisualBriefError(
+            "unknown_cluster_reference" if not matches else "duplicate_cluster_reference"
+        )
+    cluster = matches[0]
+    if len(collection.articles) != len(
+        {article.article_id for article in collection.articles}
+    ):
+        raise VisualBriefError("duplicate_article_reference")
+    if len(cluster.member_article_ids) != len(set(cluster.member_article_ids)):
+        raise VisualBriefError("duplicate_cluster_member")
+    articles_by_id = {article.article_id: article for article in collection.articles}
+    try:
+        members = tuple(articles_by_id[item] for item in cluster.member_article_ids)
+        lead = articles_by_id[cluster.lead_article_id]
+    except KeyError as error:
+        raise VisualBriefError("unknown_article_reference") from error
+    if cluster.lead_article_id not in cluster.member_article_ids:
+        raise VisualBriefError("unknown_lead_reference")
+    ordered = (
+        lead,
+        *sorted(
+            (item for item in members if item.article_id != lead.article_id),
+            key=lambda item: item.article_id,
+        ),
+    )[:MAX_VISUAL_EVIDENCE_ARTICLES]
+    return VisualFactPacket(
+        cluster_id=cluster.cluster_id,
+        lead_article_id=cluster.lead_article_id,
+        locale=locale,
+        fact_fingerprint=_cluster_fingerprint(cluster.cluster_id, members),
+        evidence=tuple(_visual_evidence(item) for item in ordered),
+    )
+
+
+def build_visual_brief(
+    packet: VisualFactPacket,
+    *,
     named_real_person: bool = False,
 ) -> VisualBrief:
-    _validate_summary_identity(packet, summary)
     evidence_by_id = {item.article_id: item for item in packet.evidence}
     lead = evidence_by_id[packet.lead_article_id]
     evidence = (
@@ -275,23 +358,6 @@ def image_cache_key(brief: VisualBrief, *, provider: str, model: str) -> str:
     )
 
 
-def _validate_summary_identity(
-    packet: SummaryFactPacket, summary: SummaryArtifact | None
-) -> None:
-    if summary is None:
-        return
-    if (
-        summary.status != "ready"
-        or summary.verification_status != "passed"
-        or summary.cluster_id != packet.cluster_id
-        or summary.lead_article_id != packet.lead_article_id
-        or not set(summary.evidence_article_ids).issubset(
-            {item.article_id for item in packet.evidence}
-        )
-    ):
-        raise VisualBriefError("summary_identity_mismatch")
-
-
 def _classify_sensitive_categories(text: str) -> tuple[SafetyCategory, ...]:
     lexical = _normalize_turkish(text)
     folded = _fold_diacritics(lexical)
@@ -325,3 +391,38 @@ def _sha256_json(payload: object) -> str:
         payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True
     )
     return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _visual_evidence(article: ArticleCandidate) -> VisualEvidenceFact:
+    return VisualEvidenceFact(
+        article_id=article.article_id,
+        content_version=article.content_version,
+        source_id=article.attribution.source_id,
+        publisher_id=article.attribution.publisher_id,
+        source_name=article.attribution.display_name,
+        canonical_url=article.canonical_url,
+        headline=article.headline,
+        feed_excerpt=article.feed_excerpt[:MAX_VISUAL_EVIDENCE_EXCERPT_CHARS],
+        published_at=article.published_at,
+    )
+
+
+def _cluster_fingerprint(
+    cluster_id: str,
+    members: tuple[ArticleCandidate, ...],
+) -> str:
+    return _sha256_json(
+        {
+            "cluster_id": cluster_id,
+            "members": sorted(
+                (
+                    {
+                        "article_id": item.article_id,
+                        "content_version": item.content_version,
+                    }
+                    for item in members
+                ),
+                key=lambda item: (item["article_id"], item["content_version"]),
+            ),
+        }
+    )
