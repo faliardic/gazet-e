@@ -14,6 +14,27 @@ Bu dosya repository kökünde bütün Gazet+E V2 çalışmalarına uygulanır ve
 
 Sabit SHA, açık Issue/PR, branch veya gate durumu kalıcı protokollerde tutulmaz. Bunlar her görevde GitHub'dan okunur. Sohbet hafızası, eski handoff, release notu veya generated output current GitHub gerçeğini override edemez.
 
+### GitHub authority / evidence reference-first
+
+Execution Agent / Workhorse ilgili GitHub Issue/PR/comment authority'sine erişebiliyorsa uzun execution talimatı sohbet veya terminalde tekrar edilmez. Kapsam, allowlist, protected contracts, validation/publication gate'leri, execution budget ve stop conditions kanonik GitHub comment'inde kalır. Owner-facing varsayılan handoff:
+
+```text
+Karar #<issue> comment `<comment_id>` olarak kaydedildi. Güncel GitHub gerçeğini yeniden doğrula ve bu authority’ye göre devam et.
+```
+
+Agent bu referansla comment'i doğrudan GitHub'dan okur; current branch, exact `HEAD`, current `main`, ilgili PR ve gerekli target-base drift durumunu fresh doğrular. Comment missing/superseded/invalid ise veya fresh GitHub gerçeği authority ile çelişiyorsa yazmaya başlamaz ve exact blocker bildirir.
+
+Aynı kural çıktı tarafında da geçerlidir. Workhorse/Execution Agent GitHub'a yazabiliyorsa full execution evidence ve provenance bir kez current task Issue/PR üzerinde kanonik evidence comment'i olarak yayımlanır. Terminal/chat full evidence'i tekrar basmaz; varsayılan dönüş yalnız şunları içerir:
+
+```text
+Result: PASS | FAIL | BLOCKED
+Evidence: #<issue-or-pr> comment `<comment_id>`
+Exact head: <sha>
+Remaining gate / next action: <kısa>
+```
+
+Full evidence yalnız özellikle istenirse tekrar gösterilir. GitHub evidence comment yazma erişimi yoksa agent comment yazmış gibi davranmaz; `EVIDENCE_COMMENT_UNAVAILABLE` bildirir ve yalnız gerekli minimum inline evidence'i verir.
+
 ## 2. Yeni görev ve resume
 
 Her yeni görevde:
@@ -30,14 +51,14 @@ Owner queue sırasını veya temel ürün kararını değiştirirse production c
 ## 3. Aktörler ve sıradaki aksiyon
 
 - **ChatGPT:** GitHub gerçeğini okur, roadmap/Issue/PR koordinasyonu yapar, scope ve gate'leri belirler, review eder.
-- **Codex:** repository-local dosya değişikliği, test, analyzer, build, format, Git commit/push ve cihaz otomasyonu açıkça devredilmişse teknik execution yapar.
+- **Execution Agent / Workhorse:** repository-local dosya değişikliği, test, analyzer, build, format, Git commit/push ve cihaz otomasyonu açıkça devredilmişse teknik execution yapar. Concrete provider Codex, Claude Code veya başka yetkili local agent olabilir.
 - **Fatih:** ürün davranışı, görsel kalite ve gerçek cihaz acceptance için nihai PASS/FAIL verir; terminal komutu çalıştırması beklenmez.
 
-Repository-local implementation gerektiğinde ChatGPT sıradaki aktörü açıkça belirtir ve current Issue'yu tekrar etmeyen kısa, exact Codex handoff'u hazırlar.
+Repository-local implementation gerektiğinde ChatGPT sıradaki aktörü açıkça belirtir. Canonical GitHub authority agent tarafından okunabiliyorsa uzun prompt yerine yalnız Issue/comment referansı verilir; aynı authority sohbet içinde tekrar edilmez.
 
 Her sonuç şu formatla biter:
 
-`Sıradaki aksiyon — <ChatGPT|Codex|Fatih|Yok>: <tek uygulanabilir talimat>.`
+`Sıradaki aksiyon — <ChatGPT|Execution Agent|Fatih|Yok>: <tek uygulanabilir talimat>.`
 
 ## 4. Lane seçimi
 
